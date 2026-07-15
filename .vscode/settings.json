@@ -1,0 +1,13 @@
+{
+  "boot-java.validation.versionValidation.enabled": false,
+  "boot-java.validation.java.version-validation.enabled": false,
+  "java.import.maven.enabled": true,
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.compile.nullAnalysis.mode": "automatic",
+  "cSpell.words": [
+    "springframework",
+    "jsonwebtoken",
+    "jjwt",
+    "projectlombok"
+  ]
+}
