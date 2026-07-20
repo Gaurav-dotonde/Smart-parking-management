@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import UserSidebar from './UserSidebar';
-import UserModuleIllustration from './UserModuleIllustration';
 import { useAuth } from '../context/AuthContext';
 import { formatDisplayName } from '../utils/formatDisplayName';
 
@@ -74,7 +73,6 @@ export default function UserLayout() {
         </header>
 
         <section className="user-page-wrap">
-          <UserModuleIllustration />
           <Outlet />
         </section>
       </main>
