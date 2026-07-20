@@ -2,7 +2,10 @@ package com.parking.controller;
 
 import com.parking.dto.AdminUserDetailsResponse;
 import com.parking.dto.AdminUserResponse;
+import com.parking.dto.AdminUserCreateRequest;
+import com.parking.dto.AdminUserUpdateRequest;
 import com.parking.service.AdminUserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +18,17 @@ import java.util.List;
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
+
+    @PostMapping
+    public ResponseEntity<AdminUserResponse> createUser(@Valid @RequestBody AdminUserCreateRequest request) {
+        return ResponseEntity.ok(adminUserService.createUser(request));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<AdminUserResponse> updateUser(@PathVariable Long id,
+                                                        @Valid @RequestBody AdminUserUpdateRequest request) {
+        return ResponseEntity.ok(adminUserService.updateUser(id, request));
+    }
 
     @GetMapping
     public ResponseEntity<List<AdminUserResponse>> getAllUsers() {

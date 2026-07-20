@@ -8,6 +8,7 @@ import {
 } from '../services/reportsService';
 import { onParkingDataChanged } from '../services/dataSync';
 import { unwrapList } from '../services/parkingService';
+import { formatDisplayName } from '../utils/formatDisplayName';
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 
@@ -314,7 +315,7 @@ export default function AdminReports() {
                     {bookings.map((booking) => (
                       <tr key={booking.bookingId}>
                         <td>{booking.bookingId}</td>
-                        <td>{booking.userName}</td>
+                        <td>{formatDisplayName(booking.userName, 'User')}</td>
                         <td>{booking.slotNumber}</td>
                         <td>{booking.vehicleNumber}</td>
                         <td>{formatDateTime(booking.bookingDate)}</td>

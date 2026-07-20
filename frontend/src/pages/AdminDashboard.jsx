@@ -3,6 +3,7 @@ import { getAdminBookings } from '../services/bookingService';
 import { getAllLots, getSlots, unwrapList } from '../services/parkingService';
 import { getAdminUsers } from '../services/userService';
 import { onParkingDataChanged } from '../services/dataSync';
+import { formatDisplayName } from '../utils/formatDisplayName';
 
 const dashboardCards = [
   { title: 'Total Parking Lots', key: 'totalLots', tone: 'navy', icon: 'slots' },
@@ -239,7 +240,7 @@ export default function AdminDashboard() {
                       {recentBookings.map((booking) => (
                         <tr key={booking.id}>
                           <td>{booking.id}</td>
-                          <td>{booking.userName}</td>
+                          <td>{formatDisplayName(booking.userName, 'User')}</td>
                           <td>{booking.slotNumber}</td>
                           <td>{booking.vehicleNumber || 'N/A'}</td>
                           <td>{formatDateTime(booking.startTime)}</td>

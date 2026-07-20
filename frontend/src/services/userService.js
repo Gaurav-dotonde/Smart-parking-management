@@ -8,6 +8,16 @@ export const getUserDashboard = () => api.get('/users/me/dashboard');
 
 export const getAdminUsers = () => api.get('/admin/users');
 export const getAdminUserById = (id) => api.get(`/admin/users/${id}`);
+export const createAdminUser = async (data) => {
+  const response = await api.post('/admin/users', data);
+  emitParkingDataChanged({ type: 'user-created', userId: response.data.id });
+  return response;
+};
+export const updateAdminUser = async (id, data) => {
+  const response = await api.put(`/admin/users/${id}`, data);
+  emitParkingDataChanged({ type: 'user-updated', userId: id });
+  return response;
+};
 export const blockAdminUser = async (id) => {
   const response = await api.put(`/admin/users/${id}/block`);
   emitParkingDataChanged({ type: 'user-blocked', userId: id });

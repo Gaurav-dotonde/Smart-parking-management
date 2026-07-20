@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { formatDisplayName } from '../utils/formatDisplayName';
 import { cancelAdminBooking, getAdminBookingById, getAdminBookings } from '../services/bookingService';
 import { onParkingDataChanged } from '../services/dataSync';
 import { unwrapList } from '../services/parkingService';
@@ -210,7 +211,7 @@ export default function AdminBookings() {
                   return (
                     <tr key={booking.id}>
                       <td>{booking.id}</td>
-                      <td>{booking.userName}</td>
+                      <td>{formatDisplayName(booking.userName, 'User')}</td>
                       <td>{booking.email}</td>
                       <td>{booking.parkingLot}</td>
                       <td>{booking.slotNumber}</td>
@@ -263,7 +264,7 @@ export default function AdminBookings() {
             {!detailsLoading && selectedBooking && (
               <div className="booking-details-grid">
                 <div><strong>Booking ID:</strong> {selectedBooking.id}</div>
-                <div><strong>User Name:</strong> {selectedBooking.userName}</div>
+                <div><strong>User Name:</strong> {formatDisplayName(selectedBooking.userName, 'User')}</div>
                 <div><strong>Email:</strong> {selectedBooking.email}</div>
                 <div><strong>Parking Lot:</strong> {selectedBooking.parkingLot}</div>
                 <div><strong>Slot Number:</strong> {selectedBooking.slotNumber}</div>

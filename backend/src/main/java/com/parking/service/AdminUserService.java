@@ -3,6 +3,8 @@ package com.parking.service;
 import com.parking.dto.AdminUserDetailsResponse;
 import com.parking.dto.AdminUserRecentBookingResponse;
 import com.parking.dto.AdminUserResponse;
+import com.parking.dto.AdminUserCreateRequest;
+import com.parking.dto.AdminUserUpdateRequest;
 import com.parking.model.Booking;
 import com.parking.model.BookingStatus;
 import com.parking.model.AccountStatus;
@@ -12,6 +14,7 @@ import com.parking.repository.BookingRepository;
 import com.parking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
@@ -25,6 +28,55 @@ public class AdminUserService {
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional
+    public AdminUserResponse createUser(AdminUserCreateRequest request) {
+        String email = normalizeEmail(request.getEmail());
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("An account with this email already exists.");
+        }
+
+        User user = User.builder()
+                .name(request.getName().trim())
+                .email(email)
+                .phone(normalizeOptional(request.getPhone()))
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(request.getRole() == null ? Role.USER : request.getRole())
+                .accountStatus(AccountStatus.ACTIVE)
+                .build();
+        return toAdminUserResponse(userRepository.save(
+                Objects.requireNonNull(user, "user must not be null")));
+    }
+
+    @Transactional
+    public AdminUserResponse updateUser(Long userId, AdminUserUpdateRequest request) {
+        User user = userRepository.findById(Objects.requireNonNull(userId, "userId must not be null"))
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        String email = normalizeEmail(request.getEmail());
+        userRepository.findByEmail(email)
+                .filter(existing -> !existing.getId().equals(user.getId()))
+                .ifPresent(existing -> { throw new IllegalArgumentException("An account with this email already exists."); });
+
+        Role role = request.getRole() == null ? Role.USER : request.getRole();
+        AccountStatus status = request.getAccountStatus() == null ? AccountStatus.ACTIVE : request.getAccountStatus();
+        if (user.getRole() == Role.ADMIN && role != Role.ADMIN && userRepository.countByRole(Role.ADMIN) <= 1) {
+            throw new IllegalStateException("The last admin account cannot be changed to a user.");
+        }
+        if (role == Role.ADMIN && status != AccountStatus.ACTIVE) {
+            throw new IllegalStateException("Admin accounts must remain active.");
+        }
+
+        user.setName(request.getName().trim());
+        user.setEmail(email);
+        user.setPhone(normalizeOptional(request.getPhone()));
+        user.setRole(role);
+        user.setAccountStatus(status);
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+        return toAdminUserResponse(userRepository.save(user));
+    }
 
     public List<AdminUserResponse> getAllUsers() {
         return userRepository.findAllByOrderByCreatedAtDesc()
@@ -88,6 +140,10 @@ public class AdminUserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+        if (user.getRole() == Role.ADMIN && userRepository.countByRole(Role.ADMIN) <= 1) {
+            throw new IllegalStateException("The last admin account cannot be deleted.");
+        }
+
         long activeBookings = bookingRepository.countByUserIdAndStatusIn(
                 id,
                 Arrays.asList(BookingStatus.PENDING, BookingStatus.ACTIVE)
@@ -125,5 +181,13 @@ public class AdminUserService {
                 booking.getStartTime(),
                 booking.getEndTime()
         );
+    }
+
+    private String normalizeEmail(String email) {
+        return Objects.requireNonNull(email, "email must not be null").trim().toLowerCase();
+    }
+
+    private String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

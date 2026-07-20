@@ -49,7 +49,8 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         LoginRequest safeRequest = Objects.requireNonNull(request, "request must not be null");
-        User user = userRepository.findByEmail(safeRequest.getEmail())
+        String email = safeRequest.getEmail().trim().toLowerCase();
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid email or password."));
 
         if (!passwordEncoder.matches(safeRequest.getPassword(), user.getPassword())) {

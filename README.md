@@ -97,12 +97,17 @@ npm run dev
 ```
 Frontend runs on `http://localhost:3000` (Vite proxies `/api` calls to the backend).
 
-### 4. Create an admin user
-Register a normal account from the UI, then run in MySQL:
-```sql
-UPDATE users SET role = 'ADMIN' WHERE email = 'your-email@example.com';
-```
-Log out and log back in — you'll now see the **Admin** link in the navbar.
+### 4. First administrator
+On startup, the backend creates one active administrator only when no `ADMIN` account
+exists. The password is BCrypt-encoded before the account is saved through JPA.
+
+- Email: `admin@smartparking.com`
+- Password: `Admin@123`
+
+Override these development defaults with `DEFAULT_ADMIN_NAME`,
+`DEFAULT_ADMIN_EMAIL`, and `DEFAULT_ADMIN_PASSWORD`. Change the password after the
+first login. Further `USER` or `ADMIN` accounts can be created from **Admin > Users**;
+no SQL seed or manual role update is required.
 
 ---
 

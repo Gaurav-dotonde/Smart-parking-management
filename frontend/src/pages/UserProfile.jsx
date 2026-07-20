@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getMyBookings } from '../services/bookingService';
 import { getCurrentUser, updateCurrentUser, changeCurrentUserPassword } from '../services/userService';
+import { formatDisplayName } from '../utils/formatDisplayName';
 
 function OverviewCard({ label, value, subtext, icon }) {
   return (
@@ -75,7 +76,7 @@ export default function UserProfile() {
     };
   }, []);
 
-  const profileName = profile?.name || user?.name || 'User';
+  const profileName = formatDisplayName(profile?.name || user?.name, 'User');
   const initials = profileName
     .split(' ')
     .filter(Boolean)

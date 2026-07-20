@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import UserSidebar from './UserSidebar';
+import UserModuleIllustration from './UserModuleIllustration';
 import { useAuth } from '../context/AuthContext';
+import { formatDisplayName } from '../utils/formatDisplayName';
 
 const titles = {
   '/user/dashboard': 'User Dashboard',
@@ -29,7 +31,7 @@ export default function UserLayout() {
   const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const userName = user?.name || 'User';
+  const userName = formatDisplayName(user?.name, 'User');
   const firstName = userName.split(' ').filter(Boolean)[0] || 'User';
 
   const pageTitle = useMemo(() => {
@@ -67,12 +69,12 @@ export default function UserLayout() {
             <Avatar name={userName} />
             <div className="user-topbar-user-copy">
               <strong>{userName}</strong>
-              <span>{user?.email || 'user@example.com'}</span>
             </div>
           </NavLink>
         </header>
 
         <section className="user-page-wrap">
+          <UserModuleIllustration />
           <Outlet />
         </section>
       </main>

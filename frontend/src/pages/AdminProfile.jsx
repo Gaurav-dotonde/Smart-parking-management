@@ -7,6 +7,7 @@ import {
   updateAdminProfile,
   uploadAdminProfilePhoto,
 } from '../services/userService';
+import { formatDisplayName } from '../utils/formatDisplayName';
 
 const emptyPasswordForm = {
   currentPassword: '',
@@ -243,7 +244,7 @@ export default function AdminProfile() {
             {photoPreview || profile?.profilePhotoUrl ? (
               <img
                 src={photoPreview || getPhotoUrl(profile?.profilePhotoUrl)}
-                alt={profile?.name || 'Admin'}
+                alt={formatDisplayName(profile?.name, 'Admin')}
                 className="admin-profile-avatar"
               />
             ) : (
@@ -305,7 +306,7 @@ export default function AdminProfile() {
               {photoPreview || profile?.profilePhotoUrl ? (
                 <img
                   src={photoPreview || getPhotoUrl(profile?.profilePhotoUrl)}
-                  alt={profile?.name || 'Admin'}
+                  alt={formatDisplayName(profile?.name, 'Admin')}
                   className="admin-profile-photo-large"
                 />
               ) : (
