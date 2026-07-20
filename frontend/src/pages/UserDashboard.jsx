@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { getUserDashboard } from '../services/userService';
+import { useAuth } from '../context/AuthContext';
+import { formatDisplayName } from '../utils/formatDisplayName';
 
 const summaryCards = [
   { title: 'Active Bookings', tone: 'blue', icon: 'booking' },
@@ -81,29 +83,8 @@ function DashIcon({ name }) {
   }
 }
 
-function HeroVisual() {
-  return (
-    <div className="user-hero-visual" aria-hidden="true">
-      <div className="user-hero-city">
-        <span className="tower t1" />
-        <span className="tower t2" />
-        <span className="tower t3" />
-        <span className="tower t4" />
-        <span className="cloud c1" />
-        <span className="cloud c2" />
-      </div>
-      <div className="user-hero-sign">P</div>
-      <div className="user-hero-car">
-        <span className="car-body" />
-        <span className="car-window" />
-        <span className="wheel w1" />
-        <span className="wheel w2" />
-      </div>
-    </div>
-  );
-}
-
 export default function UserDashboard() {
+  const { user } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -151,19 +132,18 @@ export default function UserDashboard() {
     ],
     [stats]
   );
+  const firstName = formatDisplayName(user?.name, 'User').split(' ').filter(Boolean)[0] || 'User';
 
   return (
     <div className="user-dashboard user-page-section">
-      <section className="user-dashboard-hero user-page-card">
+      <section className="user-dashboard-welcome user-page-card">
         <div className="user-dashboard-hero-copy">
-          <span className="user-hero-kicker">Welcome Back</span>
-          <h1>Manage your parking activities from one place.</h1>
-          <p>Find, book, and manage your parking from one place.</p>
-          {loading && <p className="user-dashboard-loading">Loading live dashboard data...</p>}
-          {error && <p className="error-text">{error}</p>}
+          <h1>Welcome Back, {firstName} <span aria-hidden="true">👋</span></h1>
+          <p>Manage your parking bookings, vehicles, and payments from your dashboard.</p>
         </div>
-        <HeroVisual />
       </section>
+
+      {error && <p className="error-text user-dashboard-error">{error}</p>}
 
       <section className="user-summary-grid">
         {summaryCards.map((card, index) => (
