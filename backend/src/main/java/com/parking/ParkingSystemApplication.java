@@ -9,3 +9,4 @@ public class ParkingSystemApplication {
         SpringApplication.run(ParkingSystemApplication.class, args);
     }
 }
+

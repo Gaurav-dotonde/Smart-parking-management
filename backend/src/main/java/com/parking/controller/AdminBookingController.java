@@ -29,4 +29,16 @@ public class AdminBookingController {
     public ResponseEntity<AdminBookingResponse> cancelBooking(@PathVariable Long id) {
         return ResponseEntity.ok(bookingService.cancelBookingAsAdmin(id));
     }
+
+    @PutMapping("/{id}/approve")
+    public AdminBookingResponse approve(@PathVariable Long id) { return bookingService.transitionAsAdmin(id, "APPROVE"); }
+
+    @PutMapping("/{id}/check-in")
+    public AdminBookingResponse checkIn(@PathVariable Long id) { return bookingService.transitionAsAdmin(id, "CHECK_IN"); }
+
+    @PutMapping("/{id}/check-out")
+    public AdminBookingResponse checkOut(@PathVariable Long id) { return bookingService.transitionAsAdmin(id, "CHECK_OUT"); }
+
+    @PutMapping("/{id}/complete")
+    public AdminBookingResponse complete(@PathVariable Long id) { return bookingService.transitionAsAdmin(id, "COMPLETE"); }
 }

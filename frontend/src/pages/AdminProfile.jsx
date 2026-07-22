@@ -65,6 +65,7 @@ export default function AdminProfile() {
   const [submittingPhoto, setSubmittingPhoto] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [confirmPhotoDelete, setConfirmPhotoDelete] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     currentPassword: false,
     newPassword: false,
@@ -205,8 +206,6 @@ export default function AdminProfile() {
   };
 
   const handlePhotoDelete = async () => {
-    if (!window.confirm('Remove the current profile photo?')) return;
-
     setSubmittingPhoto(true);
     setPhotoMessage('');
     setPageError('');
@@ -220,6 +219,7 @@ export default function AdminProfile() {
       }
       setPhotoPreview('');
       setPhotoMessage('Profile photo removed successfully.');
+      setConfirmPhotoDelete(false);
     } catch (err) {
       setPageError(err.response?.data?.message || 'Failed to remove profile photo.');
     } finally {
@@ -342,7 +342,7 @@ export default function AdminProfile() {
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    onClick={handlePhotoDelete}
+                    onClick={() => setConfirmPhotoDelete(true)}
                     disabled={submittingPhoto || (!profile?.profilePhotoUrl && !photoPreview)}
                   >
                     Remove Photo
@@ -483,6 +483,7 @@ export default function AdminProfile() {
           </div>
         </div>
       )}
+      {confirmPhotoDelete && <div className="modal-backdrop"><div className="modal-card confirm-card"><h3>Remove Profile Photo</h3><p>Remove the current administrator profile photo?</p><div className="manage-slots-actions"><button className="btn btn-secondary" onClick={() => setConfirmPhotoDelete(false)} disabled={submittingPhoto}>Cancel</button><button className="btn btn-danger" onClick={handlePhotoDelete} disabled={submittingPhoto}>{submittingPhoto ? 'Removing...' : 'Remove Photo'}</button></div></div></div>}
     </div>
   );
 }

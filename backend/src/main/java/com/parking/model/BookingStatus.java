@@ -1,5 +1,14 @@
 package com.parking.model;
 
 public enum BookingStatus {
-    PENDING, ACTIVE, CANCELLED, COMPLETED
+    PENDING,
+    APPROVED,
+    RESERVED,
+    ACTIVE,
+    OCCUPIED,
+    CANCELLED,
+    COMPLETED,
+    PENDING_PAYMENT,
+    CONFIRMED,
+    EXPIRED
 }

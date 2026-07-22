@@ -15,6 +15,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminLots from './pages/AdminLots';
 import AdminBookings from './pages/AdminBookings';
 import AdminUsers from './pages/AdminUsers';
+import AdminVehicles from './pages/AdminVehicles';
+import AdminPayments from './pages/AdminPayments';
 import AdminReports from './pages/AdminReports';
 import AdminProfile from './pages/AdminProfile';
 import UserHome from './pages/UserHome';
@@ -26,6 +28,7 @@ import BookingHistory from './pages/BookingHistory';
 import Payments from './pages/Payments';
 import UserProfile from './pages/UserProfile';
 import BookingDetails from './pages/BookingDetails';
+import PaymentPlaceholderPage from './payment/PaymentPlaceholderPage';
 
 function Home() {
   const { user } = useAuth();
@@ -39,7 +42,7 @@ function Home() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Navbar />
         <Routes>
           <Route path="/" element={<Home />} />
@@ -70,6 +73,7 @@ export default function App() {
             <Route path="bookings" element={<MyBookings />} />
             <Route path="booking-history" element={<BookingHistory />} />
             <Route path="payments" element={<Payments />} />
+            <Route path="payment-placeholder" element={<PaymentPlaceholderPage />} />
             <Route path="profile" element={<UserProfile />} />
           </Route>
           <Route path="/admin" element={
@@ -81,6 +85,8 @@ export default function App() {
             <Route path="slots" element={<AdminPanel />} />
             <Route path="bookings" element={<AdminBookings />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="vehicles" element={<AdminVehicles />} />
+            <Route path="payments" element={<AdminPayments />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="profile" element={<AdminProfile />} />
           </Route>

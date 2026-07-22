@@ -1,17 +1,14 @@
 package com.parking.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import java.time.LocalDateTime;
 
-@Data
-@AllArgsConstructor
-public class AdminParkingSlotResponse {
-    private Long id;
-    private Long lotId;
-    private String lotName;
-    private String slotNumber;
-    private Integer floor;
-    private String vehicleType;
-    private String status;
-    private Double pricePerHour;
-}
+public record AdminParkingSlotResponse(
+        Long id, Long lotId, String lotName, Long parkingLotId, String parkingLotName,
+        String lotAddress, String slotNumber,
+        Integer floor, String zone, String vehicleType, String slotType,
+        Double pricePerDay, Double priceOverride, String status,
+        Boolean evChargingAvailable, Boolean accessibleSlot, String notes,
+        Boolean archived, LocalDateTime createdAt, LocalDateTime updatedAt, Long version,
+        Long currentBookingId, String currentUser, String currentUserEmail,
+        String currentVehicleNumber, LocalDateTime bookingStartTime, LocalDateTime bookingEndTime
+) {}

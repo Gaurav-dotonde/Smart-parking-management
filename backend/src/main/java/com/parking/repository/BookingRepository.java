@@ -6,11 +6,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<Booking> findAllByOrderByCreatedAtDesc();
     long countBySlotIdAndStatusInAndIdNot(Long slotId, List<BookingStatus> statuses, Long id);
+    long countBySlotId(Long slotId);
     long countByUserId(Long userId);
     long countByUserIdAndStatusIn(Long userId, List<BookingStatus> statuses);
     List<Booking> findTop5ByUserIdOrderByCreatedAtDesc(Long userId);
@@ -21,4 +23,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             LocalDateTime endTime,
             LocalDateTime startTime
     );
+    Optional<Booking> findFirstBySlotIdAndStatusInOrderByStartTimeAsc(Long slotId, List<BookingStatus> statuses);
 }

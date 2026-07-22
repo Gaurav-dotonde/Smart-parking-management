@@ -26,15 +26,54 @@ public class ParkingLot {
     @Column(nullable = false)
     private String location;
 
+    @Column
+    private String address;
+
+    @Column
+    private String area;
+
+    @Column
+    private String city;
+
+    @Column
+    private String state;
+
+    @Column(name = "pin_code")
+    private String pinCode;
+
+    @Column(precision = 10, scale = 7)
+    private java.math.BigDecimal latitude;
+
+    @Column(precision = 10, scale = 7)
+    private java.math.BigDecimal longitude;
+
     @Column(nullable = false)
     private Integer totalSlots;
 
     @Column(nullable = false)
-    private Double pricePerHour;
+    @Builder.Default
+    private Integer totalFloors = 0;
+
+    @Column(nullable = false) @Builder.Default private Integer availableSlots = 0;
+    @Column(nullable = false) @Builder.Default private Integer occupiedSlots = 0;
+    @Column(nullable = false) @Builder.Default private Integer bookedSlots = 0;
+    @Column(nullable = false) @Builder.Default private Integer reservedSlots = 0;
+    @Column(nullable = false) @Builder.Default private Integer maintenanceSlots = 0;
+    @Column(nullable = false) @Builder.Default private Integer disabledSlots = 0;
+
+    @Column(name = "price_per_hour", nullable = false)
+    private Double pricePerDay;
 
     @Column(nullable = false)
     @Builder.Default
     private Boolean active = true;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean archived = false;
+
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
 
     @Column
     private LocalTime openingTime;
@@ -58,5 +97,9 @@ public class ParkingLot {
     @PreUpdate
     public void preUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public String getStatus() {
+        return Boolean.TRUE.equals(archived) ? "ARCHIVED" : Boolean.TRUE.equals(active) ? "ACTIVE" : "INACTIVE";
     }
 }

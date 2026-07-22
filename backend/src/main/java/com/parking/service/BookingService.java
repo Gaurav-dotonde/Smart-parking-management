@@ -6,11 +6,13 @@ import com.parking.dto.BookingResponse;
 import com.parking.model.*;
 import com.parking.repository.BookingRepository;
 import com.parking.repository.ParkingSlotRepository;
+import com.parking.repository.ParkingLotRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -22,6 +24,7 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final ParkingSlotRepository parkingSlotRepository;
+    private final ParkingLotRepository parkingLotRepository;
 
     /**
      * Concurrency-safe slot booking.
@@ -58,11 +61,13 @@ public class BookingService {
             throw new IllegalStateException("Slot " + slot.getSlotNumber() + " is already booked");
         }
 
-        long hours = Math.max(1, Duration.between(safeRequest.getStartTime(), safeRequest.getEndTime()).toHours());
-        double amount = hours * slot.getParkingLot().getPricePerHour();
+        long durationMinutes = Math.max(1, Duration.between(safeRequest.getStartTime(), safeRequest.getEndTime()).toMinutes());
+        long days = Math.max(1, (long) Math.ceil(durationMinutes / 1440.0));
+        double amount = days * slot.getParkingLot().getPricePerDay();
 
         slot.setStatus(SlotStatus.BOOKED);
         parkingSlotRepository.save(Objects.requireNonNull(slot, "slot must not be null"));
+        synchronizeLot(slot);
 
         Booking booking = Booking.builder()
                 .user(safeUser)
@@ -103,6 +108,7 @@ public class BookingService {
                 .orElseThrow(() -> new IllegalArgumentException("Slot not found"));
         slot.setStatus(SlotStatus.AVAILABLE);
         parkingSlotRepository.save(Objects.requireNonNull(slot, "slot must not be null"));
+        synchronizeLot(slot);
 
         return toResponse(booking);
     }
@@ -141,11 +147,12 @@ public class BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
 
-        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.ACTIVE) {
-            throw new IllegalStateException("Only pending or active bookings can be cancelled");
+        if (booking.getStatus() == BookingStatus.CANCELLED || booking.getStatus() == BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Completed or cancelled bookings cannot be cancelled");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancelledAt(LocalDateTime.now());
         if (booking.getPaymentStatus() == PaymentStatus.PAID) {
           booking.setPaymentStatus(PaymentStatus.REFUNDED);
         }
@@ -164,9 +171,55 @@ public class BookingService {
         if (activeBookings == 0) {
             slot.setStatus(SlotStatus.AVAILABLE);
             parkingSlotRepository.save(Objects.requireNonNull(slot, "slot must not be null"));
+            synchronizeLot(slot);
         }
 
         return toAdminResponse(booking);
+    }
+
+    @Transactional
+    public AdminBookingResponse transitionAsAdmin(Long bookingId, String action) {
+        Booking booking = bookingRepository.findById(Objects.requireNonNull(bookingId, "bookingId must not be null"))
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        ParkingSlot slot = parkingSlotRepository.findByIdForUpdate(booking.getSlot().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Slot not found"));
+        switch (action) {
+            case "APPROVE" -> {
+                if (booking.getStatus() != BookingStatus.PENDING) throw new IllegalStateException("Only pending bookings can be approved");
+                booking.setStatus(BookingStatus.APPROVED); booking.setApprovedAt(LocalDateTime.now()); slot.setStatus(SlotStatus.RESERVED);
+            }
+            case "CHECK_IN" -> {
+                if (!Arrays.asList(BookingStatus.APPROVED, BookingStatus.RESERVED, BookingStatus.ACTIVE).contains(booking.getStatus())) throw new IllegalStateException("Booking is not ready for check-in");
+                if (slot.getStatus() == SlotStatus.MAINTENANCE || slot.getStatus() == SlotStatus.DISABLED) throw new IllegalStateException("This slot cannot be occupied");
+                booking.setStatus(BookingStatus.OCCUPIED); booking.setCheckedInAt(LocalDateTime.now()); slot.setStatus(SlotStatus.OCCUPIED);
+            }
+            case "CHECK_OUT", "COMPLETE" -> {
+                if (!Arrays.asList(BookingStatus.OCCUPIED, BookingStatus.ACTIVE, BookingStatus.APPROVED, BookingStatus.RESERVED).contains(booking.getStatus())) throw new IllegalStateException("Booking cannot be completed from its current status");
+                booking.setStatus(BookingStatus.COMPLETED); booking.setCheckedOutAt(LocalDateTime.now()); slot.setStatus(SlotStatus.AVAILABLE);
+            }
+            default -> throw new IllegalArgumentException("Unsupported booking action");
+        }
+        parkingSlotRepository.save(slot);
+        synchronizeLot(slot);
+        return toAdminResponse(bookingRepository.save(booking));
+    }
+
+    private void synchronizeLot(ParkingSlot slot) {
+        ParkingLot lot = slot.getParkingLot();
+        int total = (int) parkingSlotRepository.countByParkingLotIdAndArchivedFalse(lot.getId());
+        lot.setTotalSlots(total);
+        lot.setTotalFloors(ParkingFloor.floorCount(total));
+        lot.setAvailableSlots(count(lot, SlotStatus.AVAILABLE));
+        lot.setBookedSlots(count(lot, SlotStatus.BOOKED));
+        lot.setReservedSlots(count(lot, SlotStatus.RESERVED));
+        lot.setOccupiedSlots(count(lot, SlotStatus.OCCUPIED));
+        lot.setMaintenanceSlots(count(lot, SlotStatus.MAINTENANCE));
+        lot.setDisabledSlots(count(lot, SlotStatus.DISABLED));
+        parkingLotRepository.save(lot);
+    }
+
+    private int count(ParkingLot lot, SlotStatus status) {
+        return (int) parkingSlotRepository.countByParkingLotIdAndArchivedFalseAndStatus(lot.getId(), status);
     }
 
     private BookingResponse toResponse(Booking booking) {

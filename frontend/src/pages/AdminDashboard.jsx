@@ -1,306 +1,170 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { getAdminBookings } from '../services/bookingService';
-import { getAllLots, getSlots, unwrapList } from '../services/parkingService';
-import { getAdminUsers } from '../services/userService';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getAdminDashboard } from '../services/adminDashboardService';
 import { onParkingDataChanged } from '../services/dataSync';
 import { formatDisplayName } from '../utils/formatDisplayName';
 
-const dashboardCards = [
-  { title: 'Total Parking Lots', key: 'totalLots', tone: 'navy', icon: 'slots' },
-  { title: 'Total Slots', key: 'totalSlots', tone: 'blue', icon: 'slots' },
-  { title: 'Available Slots', key: 'availableSlots', tone: 'green', icon: 'available' },
-  { title: 'Booked Slots', key: 'bookedSlots', tone: 'red', icon: 'booked' },
-  { title: 'Total Users', key: 'totalUsers', tone: 'purple', icon: 'users' },
-  { title: "Today's Bookings", key: 'todayBookings', tone: 'amber', icon: 'calendar' },
-  { title: 'Total Revenue', key: 'totalRevenue', tone: 'navy', icon: 'revenue' },
+const stats = [
+  { label: 'Parking Locations', key: 'totalParkingLocations', tone: 'location', icon: '⌂', description: 'Manage parking locations', to: '/admin/lots', trend: 'Live' },
+  { label: 'Total Slots', key: 'totalParkingSlots', tone: 'slot', icon: '▦', description: 'View all parking slots', to: '/admin/slots' },
+  { label: 'Available Slots', key: 'availableSlots', tone: 'available', icon: '✓', description: 'Ready for new bookings', to: '/admin/slots?status=AVAILABLE' },
+  { label: 'Booked Slots', key: 'bookedSlots', tone: 'booked', icon: '▣', description: 'Review booked slot records', to: '/admin/bookings?status=BOOKED' },
+  { label: 'Reserved Slots', key: 'reservedSlots', tone: 'reserved', icon: '◇', description: 'Review reserved bookings', to: '/admin/bookings?status=RESERVED' },
+  { label: 'Occupied Slots', key: 'occupiedSlots', tone: 'occupied', icon: '●', description: 'View occupied parking slots', to: '/admin/slots?status=OCCUPIED' },
+  { label: 'Maintenance', key: 'maintenanceSlots', tone: 'maintenance', icon: '⚒', description: 'Review maintenance slots', to: '/admin/slots?status=MAINTENANCE' },
+  { label: 'Disabled', key: 'disabledSlots', tone: 'disabled', icon: '⊘', description: 'View disabled parking slots', to: '/admin/slots?status=DISABLED' },
+  { label: 'Users', key: 'totalUsers', tone: 'users', icon: '♙', description: 'Manage registered users', to: '/admin/users' },
+  { label: 'Vehicles', key: 'totalVehicles', tone: 'vehicles', icon: '▰', description: 'Manage vehicle records', to: '/admin/vehicles' },
+  { label: 'Active Bookings', key: 'activeBookings', tone: 'active', icon: '◷', description: 'View active booking activity', to: '/admin/bookings?status=ACTIVE' },
+  { label: 'Completed Bookings', key: 'completedBookings', tone: 'completed', icon: '✓', description: 'Review completed bookings', to: '/admin/bookings?status=COMPLETED' },
+  { label: 'Cancelled Bookings', key: 'cancelledBookings', tone: 'cancelled', icon: '×', description: 'Review cancelled bookings', to: '/admin/bookings?status=CANCELLED' },
+  { label: "Today's Bookings", key: 'todayBookings', tone: 'today', icon: '◫', description: 'View bookings created today', to: '/admin/bookings?date=today', trend: 'Today' },
+  { label: 'Revenue', key: 'totalRevenue', tone: 'revenue', icon: '₹', description: 'Review payment activity', to: '/admin/payments' },
+  { label: 'Reports', key: 'totalParkingLocations', tone: 'reports', icon: '▤', description: 'Open operational reports', to: '/admin/reports' },
 ];
 
-const isSameDay = (value) => {
-  if (!value) return false;
-  const date = new Date(value);
-  const now = new Date();
-  return date.getFullYear() === now.getFullYear()
-    && date.getMonth() === now.getMonth()
-    && date.getDate() === now.getDate();
-};
+const slotKeys = [
+  ['Available', 'availableSlots', '#18a66a'], ['Booked', 'bookedSlots', '#6757d9'],
+  ['Reserved', 'reservedSlots', '#e49a21'], ['Occupied', 'occupiedSlots', '#1677e8'],
+  ['Maintenance', 'maintenanceSlots', '#7c8798'], ['Disabled', 'disabledSlots', '#e05260'],
+];
 
-const formatDateTime = (value) => {
-  if (!value) return 'N/A';
-  return new Date(value).toLocaleString();
-};
+const bookingKeys = [
+  ['Active', 'activeBookings', '#1677e8'], ['Completed', 'completedBookings', '#18a66a'],
+  ['Cancelled', 'cancelledBookings', '#e05260'],
+];
 
-const formatMoney = (value) => `Rs ${(value || 0).toLocaleString()}`;
+const money = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value || 0));
+const dateTime = (value) => value ? new Date(value).toLocaleString() : 'N/A';
+const dateLabel = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' }) : '';
 
-function DashboardIcon({ name }) {
-  const commonProps = {
-    className: 'dashboard-stat-svg',
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    xmlns: 'http://www.w3.org/2000/svg',
-    'aria-hidden': 'true',
-  };
-
-  switch (name) {
-    case 'slots':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 8.5C4 7.11929 5.11929 6 6.5 6H9.5L11 8H17.5C18.8807 8 20 9.11929 20 10.5V16.5C20 17.8807 18.8807 19 17.5 19H6.5C5.11929 19 4 17.8807 4 16.5V8.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        </svg>
-      );
-    case 'available':
-      return (
-        <svg {...commonProps}>
-          <path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-          <path d="M8.5 12L10.8 14.3L15.8 9.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-    case 'booked':
-      return (
-        <svg {...commonProps}>
-          <path d="M7 4.75V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M17 4.75V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <rect x="4" y="6.5" width="16" height="13.5" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M4 10.5H20" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-      );
-    case 'users':
-      return (
-        <svg {...commonProps}>
-          <path d="M8.5 12C10.433 12 12 10.433 12 8.5C12 6.567 10.433 5 8.5 5C6.567 5 5 6.567 5 8.5C5 10.433 6.567 12 8.5 12Z" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M15.5 10C17.1569 10 18.5 8.65685 18.5 7C18.5 5.34315 17.1569 4 15.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M3.5 18C4.33398 15.8246 6.50444 14.5 9 14.5H10C12.4956 14.5 14.666 15.8246 15.5 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M16 14.5C18.0024 14.5 19.773 15.5843 20.7 17.25" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      );
-    case 'calendar':
-      return (
-        <svg {...commonProps}>
-          <path d="M7 4.75V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M17 4.75V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <rect x="4" y="6.5" width="16" height="13.5" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M4 10.5H20" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M8 14H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      );
-    case 'revenue':
-      return (
-        <svg {...commonProps}>
-          <path d="M12 4V20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M16 7.5C15.2 6.5 13.9 6 12.3 6C10.1 6 8.5 7.1 8.5 8.8C8.5 10.3 9.7 11.1 12 11.6C14.4 12.1 15.5 12.9 15.5 14.4C15.5 16.2 13.8 17.4 11.4 17.4C9.7 17.4 8.2 16.8 7.2 15.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      );
-    default:
-      return null;
-  }
+function Donut({ rows, data, title }) {
+  const total = rows.reduce((sum, [, key]) => sum + Number(data[key] || 0), 0);
+  let offset = 0;
+  const gradient = rows.map(([, key, color]) => {
+    const start = offset;
+    offset += total ? Number(data[key] || 0) * 100 / total : 0;
+    return `${color} ${start}% ${offset}%`;
+  }).join(', ');
+  return (
+    <div className="admin-donut-layout">
+      <div className="admin-donut" style={{ background: total ? `conic-gradient(${gradient})` : '#e7edf5' }}>
+        <div><strong>{total}</strong><small>{title}</small></div>
+      </div>
+      <div className="admin-chart-legend">
+        {rows.map(([label, key, color]) => <div key={key}><span style={{ background: color }} /><em>{label}</em><strong>{data[key] || 0}</strong></div>)}
+      </div>
+    </div>
+  );
 }
 
+function Empty({ text }) { return <div className="admin-empty-compact">{text}</div>; }
+
+const emptyDashboard = {
+  totalParkingLocations: 0, totalParkingSlots: 0, availableSlots: 0, bookedSlots: 0,
+  reservedSlots: 0, occupiedSlots: 0, maintenanceSlots: 0, disabledSlots: 0,
+  totalUsers: 0, totalVehicles: 0, activeBookings: 0, completedBookings: 0,
+  cancelledBookings: 0, todayBookings: 0, totalRevenue: 0,
+  recentBookings: [], recentUsers: [], recentPayments: [], locationOccupancy: [], revenueOverview: [],
+};
+
+const normalizeDashboard = (value) => {
+  const source = value && typeof value === 'object' ? value : {};
+  return {
+    ...emptyDashboard,
+    ...source,
+    totalParkingLocations: Number(source.totalParkingLocations ?? source.totalLocations ?? 0),
+    totalParkingSlots: Number(source.totalParkingSlots ?? source.totalSlots ?? 0),
+    recentBookings: Array.isArray(source.recentBookings) ? source.recentBookings : [],
+    recentUsers: Array.isArray(source.recentUsers) ? source.recentUsers : [],
+    recentPayments: Array.isArray(source.recentPayments) ? source.recentPayments : [],
+    locationOccupancy: Array.isArray(source.locationOccupancy) ? source.locationOccupancy : [],
+    revenueOverview: Array.isArray(source.revenueOverview) ? source.revenueOverview : [],
+  };
+};
+
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+  const [data, setData] = useState(emptyDashboard);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [bookings, setBookings] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [lots, setLots] = useState([]);
-  const [slots, setSlots] = useState([]);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let alive = true;
-    const loadDashboard = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const [bookingsRes, usersRes, lotsRes] = await Promise.all([
-          getAdminBookings(),
-          getAdminUsers(),
-          getAllLots(),
-        ]);
-
-        const slotGroups = await Promise.all(
-          unwrapList(lotsRes.data).map(async (lot) => {
-            const res = await getSlots(lot.id);
-            return unwrapList(res.data);
-          })
-        );
-
-        if (!alive) return;
-        setBookings(unwrapList(bookingsRes.data));
-        setUsers(unwrapList(usersRes.data));
-        setLots(unwrapList(lotsRes.data));
-        setSlots(slotGroups.flat());
-      } catch (err) {
-        if (alive) {
-          setError(err.response?.data?.message || 'Failed to load dashboard data.');
-        }
-      } finally {
-        if (alive) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadDashboard();
-    const unsubscribe = onParkingDataChanged(() => {
-      loadDashboard();
-    });
-    const onFocus = () => loadDashboard();
-    window.addEventListener('focus', onFocus);
-
-    return () => {
-      alive = false;
-      unsubscribe();
-      window.removeEventListener('focus', onFocus);
-    };
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await getAdminDashboard();
+      setData(normalizeDashboard(response?.data));
+    } catch (requestError) {
+      const diagnostic = {
+        status: requestError.response?.status,
+        data: requestError.response?.data,
+        message: requestError.message,
+      };
+      if (import.meta.env.DEV) console.error('Admin dashboard request failed', diagnostic);
+      setError({
+        message: requestError.response?.data?.message || 'Unable to load dashboard data.',
+        status: requestError.response?.status,
+      });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const summary = useMemo(() => {
-    const availableSlots = slots.filter((slot) => slot.status === 'AVAILABLE').length;
-    const bookedSlots = slots.filter((slot) => slot.status === 'BOOKED' || slot.status === 'RESERVED' || slot.status === 'OCCUPIED').length;
-    const maintenanceSlots = slots.filter((slot) => slot.status === 'DISABLED' || slot.status === 'MAINTENANCE').length;
-    const totalRevenue = bookings
-      .filter((booking) => booking.paymentStatus === 'PAID')
-      .reduce((sum, booking) => sum + (booking.amount || 0), 0);
+  useEffect(() => {
+    loadDashboard();
+    const unsubscribe = onParkingDataChanged(loadDashboard);
+    window.addEventListener('focus', loadDashboard);
+    return () => { unsubscribe(); window.removeEventListener('focus', loadDashboard); };
+  }, [loadDashboard]);
 
-    return {
-      totalSlots: slots.length,
-      totalLots: lots.length,
-      availableSlots,
-      bookedSlots,
-      totalUsers: users.length,
-      todayBookings: bookings.filter((booking) => isSameDay(booking.startTime)).length,
-      totalRevenue: formatMoney(totalRevenue),
-      maintenanceSlots,
-    };
-  }, [bookings, users, lots, slots]);
+  const maxRevenue = useMemo(() => Math.max(1, ...(data?.revenueOverview || []).map((point) => Number(point.amount || 0))), [data]);
 
-  const recentBookings = useMemo(
-    () => [...bookings]
-      .sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0))
-      .slice(0, 4),
-    [bookings]
-  );
-
-  const slotStatus = useMemo(() => ([
-    { label: 'Available Slots', value: summary.availableSlots, tone: 'available' },
-    { label: 'Booked Slots', value: summary.bookedSlots, tone: 'booked' },
-    { label: 'Maintenance Slots', value: summary.maintenanceSlots, tone: 'maintenance' },
-  ]), [summary]);
-
-  const totalStatusSlots = Math.max(
-    1,
-    summary.availableSlots + summary.bookedSlots + summary.maintenanceSlots
-  );
+  if (loading) return <div className="admin-dashboard-page"><div className="admin-loading-card"><span className="admin-spinner" />Loading live dashboard data…</div></div>;
+  if (error) return <div className="admin-dashboard-page"><section className="admin-dashboard-error" role="alert"><div className="admin-dashboard-error-icon">!</div><div><h2>Unable to load dashboard data</h2><p>Please check the backend connection and try again.</p>{import.meta.env.DEV && <small>{error.status ? `HTTP ${error.status}: ` : ''}{error.message}</small>}</div><button type="button" className="admin-primary-button" onClick={loadDashboard}>Retry</button></section></div>;
 
   return (
-    <div className="container admin-page">
-      <h2 className="page-title">Dashboard</h2>
-      <p className="subtitle">Admin dashboard overview for Smart Parking System.</p>
+    <div className="admin-dashboard-page">
+      <div className="admin-compact-page-head"><div><h2>Operations overview</h2><p>Live information from the parking database.</p></div><button className="admin-secondary-button" onClick={() => navigate('/admin/reports')}>View reports</button></div>
 
-      {loading && <div className="empty-state">Loading dashboard...</div>}
-      {!loading && error && <div className="error-text">{error}</div>}
+      <section className="admin-dashboard-stat-grid" aria-label="Dashboard navigation">
+        {stats.map(({ label, key, tone, icon, description, to, trend }) => <button type="button" className={`admin-dashboard-stat ${tone}`} key={label} onClick={() => navigate(to)} aria-label={`${label}: ${data[key]}. View details`}>
+          <span className="admin-stat-symbol" aria-hidden="true">{icon}</span>
+          {trend && <span className="admin-stat-trend">{trend}</span>}
+          <span className="admin-stat-content"><small>{label}</small><strong>{key === 'totalRevenue' ? money(data[key]) : data[key]}</strong><em>{description}</em></span>
+          <span className="admin-stat-hint">Click to view details <b aria-hidden="true">→</b></span>
+        </button>)}
+      </section>
 
-      {!loading && !error && (
-        <>
-          <div className="dashboard-stats-grid">
-            {dashboardCards.map((stat) => (
-              <div key={stat.title} className="card dashboard-stat-card">
-                <div className={`dashboard-stat-icon ${stat.tone}`}>
-                  <DashboardIcon name={stat.icon} />
-                </div>
-                <div>
-                  <span className="dashboard-stat-title">{stat.title}</span>
-                  <strong className="dashboard-stat-value">{summary[stat.key]}</strong>
-                </div>
-              </div>
-            ))}
+      <div className="admin-dashboard-grid two">
+        <section className="admin-dashboard-panel"><header><h3>Slot availability</h3><p>Current status across all locations</p></header><Donut rows={slotKeys} data={data} title="slots" /></section>
+        <section className="admin-dashboard-panel"><header><h3>Booking status</h3><p>Current booking lifecycle totals</p></header><Donut rows={bookingKeys} data={data} title="bookings" /></section>
+      </div>
+
+      <div className="admin-dashboard-grid revenue-quick">
+        <section className="admin-dashboard-panel"><header><h3>Revenue overview</h3><p>Paid booking revenue for the last 7 days</p></header>
+          <div className="admin-revenue-chart">{(data.revenueOverview || []).map((point) => <div className="admin-revenue-column" key={point.date} title={`${point.date}: ${money(point.amount)}`}><span style={{ height: `${Math.max(5, Number(point.amount || 0) * 100 / maxRevenue)}%` }} /><small>{dateLabel(point.date)}</small></div>)}</div>
+        </section>
+        <section className="admin-dashboard-panel"><header><h3>Quick actions</h3><p>Common administrator tasks</p></header>
+          <div className="admin-quick-actions">
+            <button onClick={() => navigate('/admin/lots?action=add')}>+ Add Parking Location</button>
+            <button onClick={() => navigate('/admin/slots?action=add')}>+ Add Parking Slot</button>
+            <button onClick={() => navigate('/admin/bookings')}>View Bookings</button>
+            <button onClick={() => navigate('/admin/users?action=add')}>+ Add User</button>
+            <button onClick={() => navigate('/admin/reports')}>Generate Report</button>
           </div>
+        </section>
+      </div>
 
-          <div className="dashboard-sections-grid">
-            <section className="card dashboard-section dashboard-table-section">
-              <div className="dashboard-section-head">
-                <h3>Recent Bookings</h3>
-                <p>Recent admin-side booking activity.</p>
-              </div>
+      <section className="admin-dashboard-panel admin-wide-table"><header><h3>Recent bookings</h3><p>Latest booking activity</p></header>
+        {!data.recentBookings.length ? <Empty text="No bookings have been created yet." /> : <div className="admin-responsive-table"><table><thead><tr><th>ID</th><th>User</th><th>Location / Slot</th><th>Vehicle</th><th>Start</th><th>Status</th></tr></thead><tbody>{data.recentBookings.map((item) => <tr key={item.id}><td>#{item.id}</td><td>{formatDisplayName(item.userName, 'User')}<small>{item.email}</small></td><td>{item.parkingLot}<small>{item.slotNumber}</small></td><td>{item.vehicleNumber || 'N/A'}</td><td>{dateTime(item.startTime)}</td><td><span className={`admin-status ${(item.bookingStatus || 'pending').toLowerCase()}`}>{item.bookingStatus || 'PENDING'}</span></td></tr>)}</tbody></table></div>}
+      </section>
 
-              {!recentBookings.length ? (
-                <div className="empty-state">No bookings available.</div>
-              ) : (
-                <div className="dashboard-table-wrap">
-                  <table className="dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>Booking ID</th>
-                        <th>User Name</th>
-                        <th>Slot Number</th>
-                        <th>Vehicle Number</th>
-                        <th>Start Time</th>
-                        <th>End Time</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentBookings.map((booking) => (
-                        <tr key={booking.id}>
-                          <td>{booking.id}</td>
-                          <td>{formatDisplayName(booking.userName, 'User')}</td>
-                          <td>{booking.slotNumber}</td>
-                          <td>{booking.vehicleNumber || 'N/A'}</td>
-                          <td>{formatDateTime(booking.startTime)}</td>
-                          <td>{formatDateTime(booking.endTime)}</td>
-                          <td>
-                            <span className={`badge ${
-                              booking.bookingStatus === 'ACTIVE'
-                                ? 'badge-active'
-                                : booking.bookingStatus === 'COMPLETED'
-                                  ? 'badge-completed'
-                                  : 'badge-cancelled'
-                            }`}
-                            >
-                              {booking.bookingStatus}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="card dashboard-section">
-              <div className="dashboard-section-head">
-                <h3>Slot Status Overview</h3>
-                <p>Quick visual summary of parking slot distribution.</p>
-              </div>
-
-              <div className="slot-status-list">
-                {slotStatus.map((item) => (
-                  <div key={item.label} className="slot-status-item">
-                    <div className="slot-status-copy">
-                      <span className={`slot-status-dot ${item.tone}`}></span>
-                      <span>{item.label}</span>
-                    </div>
-                    <strong>{item.value}</strong>
-                  </div>
-                ))}
-              </div>
-
-              <div className="slot-status-bar">
-                <div
-                  className="slot-status-segment available"
-                  style={{ width: `${(summary.availableSlots / totalStatusSlots) * 100}%` }}
-                ></div>
-                <div
-                  className="slot-status-segment booked"
-                  style={{ width: `${(summary.bookedSlots / totalStatusSlots) * 100}%` }}
-                ></div>
-                <div
-                  className="slot-status-segment maintenance"
-                  style={{ width: `${(summary.maintenanceSlots / totalStatusSlots) * 100}%` }}
-                ></div>
-              </div>
-            </section>
-          </div>
-        </>
-      )}
+      <div className="admin-dashboard-grid three">
+        <section className="admin-dashboard-panel"><header><h3>Recently registered users</h3></header>{!data.recentUsers.length ? <Empty text="No registered users." /> : <div className="admin-activity-list">{data.recentUsers.map((item) => <div key={item.id}><span className="admin-mini-avatar">{item.name?.charAt(0) || 'U'}</span><p><strong>{formatDisplayName(item.name, 'User')}</strong><small>{item.email}</small></p><span className={`admin-status ${(item.accountStatus || 'active').toLowerCase()}`}>{item.accountStatus || 'ACTIVE'}</span></div>)}</div>}</section>
+        <section className="admin-dashboard-panel"><header><h3>Recent payment activity</h3></header>{!data.recentPayments.length ? <Empty text="No payment activity." /> : <div className="admin-activity-list">{data.recentPayments.map((item) => <div key={item.bookingId}><p><strong>{item.transactionReference}</strong><small>{formatDisplayName(item.userName, 'User')}</small></p><p className="admin-payment-amount"><strong>{money(item.amount)}</strong><span className={`admin-status ${(item.paymentStatus || 'unpaid').toLowerCase()}`}>{item.paymentStatus || 'UNPAID'}</span></p></div>)}</div>}</section>
+        <section className="admin-dashboard-panel"><header><h3>Location occupancy</h3></header>{!data.locationOccupancy?.length ? <Empty text="No parking locations." /> : <div className="admin-occupancy-list">{data.locationOccupancy.map((item) => <div key={item.locationId}><p><strong>{item.locationName}</strong><small>{item.unavailableSlots} of {item.totalSlots} unavailable</small></p><div><span style={{ width: `${item.occupancyPercentage}%` }} /></div><em>{item.occupancyPercentage}%</em></div>)}</div>}</section>
+      </div>
     </div>
   );
 }
