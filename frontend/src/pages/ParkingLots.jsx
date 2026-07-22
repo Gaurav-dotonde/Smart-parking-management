@@ -48,7 +48,7 @@ export default function ParkingLots() {
             <h3>{lot.name}</h3>
             <p>Location: {lot.location}</p>
             <p>Total slots: {lot.totalSlots}</p>
-            <p>Price: Rs {lot.pricePerHour} / hour</p>
+            <p>Price: Rs {lot.pricePerDay} / day</p>
             <p>Open: {lot.openingTime || 'N/A'} - {lot.closingTime || 'N/A'}</p>
             <Link to={`/lots/${lot.id}`}>
               <button className="btn" style={{ marginTop: 10 }}>View Slots</button>

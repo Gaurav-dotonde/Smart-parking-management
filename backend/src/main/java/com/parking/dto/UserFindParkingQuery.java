@@ -16,4 +16,5 @@ public class UserFindParkingQuery {
 
     private String vehicleType;
     private String floor;
+    private Long lotId;
 }

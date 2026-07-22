@@ -30,7 +30,7 @@ export const unblockAdminUser = async (id) => {
 };
 export const deleteAdminUser = async (id) => {
   const response = await api.delete(`/admin/users/${id}`);
-  emitParkingDataChanged({ type: 'user-deleted', userId: id });
+  emitParkingDataChanged({ type: 'user-archived', userId: id });
   return response;
 };
 export const getAdminProfile = () => api.get('/admin/profile');

@@ -3,8 +3,8 @@ package com.parking.controller;
 import com.parking.dto.AdminParkingSlotRequest;
 import com.parking.dto.AdminParkingSlotResponse;
 import com.parking.dto.ParkingLotRequest;
+import com.parking.dto.ParkingSlotResponse;
 import com.parking.model.ParkingLot;
-import com.parking.model.ParkingSlot;
 import com.parking.service.ParkingLotService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +36,7 @@ public class ParkingLotController {
     }
 
     @GetMapping("/{id}/slots")
-    public ResponseEntity<List<ParkingSlot>> getSlots(@PathVariable Long id) {
+    public ResponseEntity<List<ParkingSlotResponse>> getSlots(@PathVariable Long id) {
         return ResponseEntity.ok(parkingLotService.getSlotsByLot(id));
     }
 
@@ -52,8 +52,18 @@ public class ParkingLotController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ParkingLot> updateLot(@PathVariable Long id, @Valid @RequestBody ParkingLotRequest request) {
+    public ResponseEntity<ParkingLot> updateLot(@PathVariable Long id, @RequestBody ParkingLotRequest request) {
         return ResponseEntity.ok(parkingLotService.updateLot(id, request));
+    }
+
+    @PutMapping("/{id}/archive")
+    public ResponseEntity<ParkingLot> archiveLot(@PathVariable Long id) {
+        return ResponseEntity.ok(parkingLotService.archiveLot(id));
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<ParkingLot> setLotStatus(@PathVariable Long id, @RequestParam boolean active) {
+        return ResponseEntity.ok(parkingLotService.setLotActive(id, active));
     }
 
     @PostMapping("/{id}/slots")
@@ -62,7 +72,8 @@ public class ParkingLotController {
             @Valid @RequestBody AdminParkingSlotRequest request
     ) {
         request.setLotId(id);
-        return ResponseEntity.ok(parkingLotService.createSlot(request));
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                .body(parkingLotService.createSlot(request));
     }
 
     @PutMapping("/{lotId}/slots/{slotId}")

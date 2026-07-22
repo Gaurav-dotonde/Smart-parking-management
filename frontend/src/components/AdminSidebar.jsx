@@ -4,110 +4,57 @@ import { useAuth } from '../context/AuthContext';
 
 const items = [
   { label: 'Dashboard', to: '/admin/dashboard', icon: 'dashboard' },
-  { label: 'Manage Lots', to: '/admin/lots', icon: 'slots' },
-  { label: 'Manage Slots', to: '/admin/slots', icon: 'slots' },
-  { label: 'All Bookings', to: '/admin/bookings', icon: 'bookings' },
+  { label: 'Parking Locations', to: '/admin/lots', icon: 'locations' },
+  { label: 'Parking Slots', to: '/admin/slots', icon: 'slots' },
+  { label: 'Bookings', to: '/admin/bookings', icon: 'bookings' },
   { label: 'Users', to: '/admin/users', icon: 'users' },
+  { label: 'Vehicles', to: '/admin/vehicles', icon: 'vehicles' },
+  { label: 'Payments', to: '/admin/payments', icon: 'payments' },
   { label: 'Reports', to: '/admin/reports', icon: 'reports' },
-  { label: 'Profile', to: '/admin/profile', icon: 'profile' },
+  { label: 'Admin Profile', to: '/admin/profile', icon: 'profile' },
 ];
 
 function SidebarIcon({ name }) {
-  const commonProps = {
-    className: 'admin-sidebar-icon',
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    xmlns: 'http://www.w3.org/2000/svg',
-    'aria-hidden': 'true',
+  const paths = {
+    dashboard: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></>,
+    locations: <><path d="M12 21s7-5.3 7-12a7 7 0 1 0-14 0c0 6.7 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></>,
+    slots: <><path d="M5 18V8.5A3.5 3.5 0 0 1 8.5 5h5a5 5 0 0 1 0 10H9"/><path d="M9 5v14"/></>,
+    bookings: <><rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10h16M8 14h3M8 17h6"/></>,
+    users: <><circle cx="9" cy="8" r="3.5"/><path d="M3.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M15.5 5.2a3 3 0 0 1 0 5.6M16 14.5c2 .2 3.6 1.6 4.3 3.5"/></>,
+    vehicles: <><path d="M4 15V10l2-4h12l2 4v5"/><path d="M3 15h18v3H3zM7 18v2M17 18v2"/><circle cx="7" cy="12" r="1"/><circle cx="17" cy="12" r="1"/></>,
+    payments: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 15h4"/></>,
+    reports: <><path d="M5 20V11M12 20V4M19 20v-6M3 20.5h18"/></>,
+    profile: <><circle cx="12" cy="8" r="4"/><path d="M5 20c.9-3.2 3.5-5 7-5s6.1 1.8 7 5"/></>,
   };
-
-  switch (name) {
-    case 'dashboard':
-      return (
-        <svg {...commonProps}>
-          <rect x="3.5" y="3.5" width="17" height="17" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M7 8.5H10.5V12H7V8.5Z" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M13.5 8.5H17V15.5H13.5V8.5Z" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M7 14.5H10.5V17H7V14.5Z" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-      );
-    case 'slots':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 8.5C4 7.11929 5.11929 6 6.5 6H9.5L11 8H17.5C18.8807 8 20 9.11929 20 10.5V16.5C20 17.8807 18.8807 19 17.5 19H6.5C5.11929 19 4 17.8807 4 16.5V8.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        </svg>
-      );
-    case 'bookings':
-      return (
-        <svg {...commonProps}>
-          <path d="M7 4.75V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M17 4.75V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <rect x="4" y="6.5" width="16" height="13.5" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M4 10.5H20" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-      );
-    case 'users':
-      return (
-        <svg {...commonProps}>
-          <path d="M8.5 12C10.433 12 12 10.433 12 8.5C12 6.567 10.433 5 8.5 5C6.567 5 5 6.567 5 8.5C5 10.433 6.567 12 8.5 12Z" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M15.5 10C17.1569 10 18.5 8.65685 18.5 7C18.5 5.34315 17.1569 4 15.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M3.5 18C4.33398 15.8246 6.50444 14.5 9 14.5H10C12.4956 14.5 14.666 15.8246 15.5 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M16 14.5C18.0024 14.5 19.773 15.5843 20.7 17.25" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      );
-    case 'reports':
-      return (
-        <svg {...commonProps}>
-          <path d="M7 18V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M12 18V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M17 18V13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M5 19.25H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      );
-    case 'profile':
-      return (
-        <svg {...commonProps}>
-          <path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M5 19C5.91242 16.6156 8.29048 15 11 15H13C15.7095 15 18.0876 16.6156 19 19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      );
-    default:
-      return null;
-  }
+  return <svg className="admin-sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ open = false, onClose }) {
   const { logoutUser } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logoutUser();
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
 
   return (
-    <aside className="admin-sidebar">
+    <aside className={`admin-sidebar ${open ? 'is-open' : ''}`} aria-label="Admin navigation">
       <div className="admin-sidebar-brand">
-        <span>SMART PARKING</span>
-        <strong>Admin Panel</strong>
+        <span className="admin-brand-mark">P</span>
+        <div><strong>Smart Parking</strong><small>Admin Console</small></div>
+        <button type="button" className="admin-sidebar-close" aria-label="Close navigation" onClick={onClose}>×</button>
       </div>
-
       <nav className="admin-sidebar-nav">
         {items.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) => `admin-sidebar-link ${isActive ? 'active' : ''}`}
-            end={item.to === '/admin/dashboard'}
-          >
-            <SidebarIcon name={item.icon} />
-            <span>{item.label}</span>
+          <NavLink key={item.to} to={item.to} onClick={onClose} className={({ isActive }) => `admin-sidebar-link ${isActive ? 'active' : ''}`} end={item.to === '/admin/dashboard'}>
+            <SidebarIcon name={item.icon} /><span>{item.label}</span>
           </NavLink>
         ))}
       </nav>
-
       <div className="admin-sidebar-footer">
-        <button type="button" className="btn admin-logout-btn" onClick={handleLogout}>
+        <button type="button" className="admin-logout-btn" onClick={handleLogout}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5M14 8l4 4-4 4M8 12h10"/></svg>
           Logout
         </button>
       </div>

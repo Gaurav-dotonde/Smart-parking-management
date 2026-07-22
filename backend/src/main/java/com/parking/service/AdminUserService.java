@@ -42,7 +42,7 @@ public class AdminUserService {
                 .email(email)
                 .phone(normalizeOptional(request.getPhone()))
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(request.getRole() == null ? Role.USER : request.getRole())
+                .role(Role.USER)
                 .accountStatus(AccountStatus.ACTIVE)
                 .build();
         return toAdminUserResponse(userRepository.save(
@@ -51,26 +51,18 @@ public class AdminUserService {
 
     @Transactional
     public AdminUserResponse updateUser(Long userId, AdminUserUpdateRequest request) {
-        User user = userRepository.findById(Objects.requireNonNull(userId, "userId must not be null"))
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = getManagedUser(userId);
         String email = normalizeEmail(request.getEmail());
         userRepository.findByEmail(email)
                 .filter(existing -> !existing.getId().equals(user.getId()))
                 .ifPresent(existing -> { throw new IllegalArgumentException("An account with this email already exists."); });
 
-        Role role = request.getRole() == null ? Role.USER : request.getRole();
         AccountStatus status = request.getAccountStatus() == null ? AccountStatus.ACTIVE : request.getAccountStatus();
-        if (user.getRole() == Role.ADMIN && role != Role.ADMIN && userRepository.countByRole(Role.ADMIN) <= 1) {
-            throw new IllegalStateException("The last admin account cannot be changed to a user.");
-        }
-        if (role == Role.ADMIN && status != AccountStatus.ACTIVE) {
-            throw new IllegalStateException("Admin accounts must remain active.");
-        }
 
         user.setName(request.getName().trim());
         user.setEmail(email);
         user.setPhone(normalizeOptional(request.getPhone()));
-        user.setRole(role);
+        user.setRole(Role.USER);
         user.setAccountStatus(status);
         if (request.getPassword() != null && !request.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -79,7 +71,7 @@ public class AdminUserService {
     }
 
     public List<AdminUserResponse> getAllUsers() {
-        return userRepository.findAllByOrderByCreatedAtDesc()
+        return userRepository.findAllByRoleAndArchivedFalseOrderByCreatedAtDesc(Role.USER)
                 .stream()
                 .map(this::toAdminUserResponse)
                 .collect(Collectors.toList());
@@ -87,8 +79,7 @@ public class AdminUserService {
 
     public AdminUserDetailsResponse getUserDetails(Long userId) {
         Long id = Objects.requireNonNull(userId, "userId must not be null");
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = getManagedUser(id);
 
         List<AdminUserRecentBookingResponse> recentBookings = bookingRepository.findTop5ByUserIdOrderByCreatedAtDesc(id)
                 .stream()
@@ -111,8 +102,7 @@ public class AdminUserService {
     @Transactional
     public AdminUserResponse blockUser(Long userId) {
         Long id = Objects.requireNonNull(userId, "userId must not be null");
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = getManagedUser(id);
 
         if (user.getRole() == Role.ADMIN) {
             throw new IllegalStateException("Admin account cannot be blocked");
@@ -126,8 +116,7 @@ public class AdminUserService {
     @Transactional
     public AdminUserResponse unblockUser(Long userId) {
         Long id = Objects.requireNonNull(userId, "userId must not be null");
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = getManagedUser(id);
 
         user.setAccountStatus(AccountStatus.ACTIVE);
         userRepository.save(Objects.requireNonNull(user, "user must not be null"));
@@ -137,11 +126,10 @@ public class AdminUserService {
     @Transactional
     public void deleteUser(Long userId) {
         Long id = Objects.requireNonNull(userId, "userId must not be null");
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = getManagedUser(id);
 
-        if (user.getRole() == Role.ADMIN && userRepository.countByRole(Role.ADMIN) <= 1) {
-            throw new IllegalStateException("The last admin account cannot be deleted.");
+        if (user.getRole() == Role.ADMIN && userRepository.countByRoleAndArchivedFalse(Role.ADMIN) <= 1) {
+            throw new IllegalStateException("The last admin account cannot be archived.");
         }
 
         long activeBookings = bookingRepository.countByUserIdAndStatusIn(
@@ -150,10 +138,12 @@ public class AdminUserService {
         );
 
         if (activeBookings > 0) {
-            throw new IllegalStateException("This user cannot be deleted because they have active bookings.");
+            throw new IllegalStateException("This user cannot be archived because they have active bookings.");
         }
-
-        userRepository.delete(Objects.requireNonNull(user, "user must not be null"));
+        user.setArchived(true);
+        user.setArchivedAt(java.time.LocalDateTime.now());
+        user.setAccountStatus(AccountStatus.INACTIVE);
+        userRepository.save(Objects.requireNonNull(user, "user must not be null"));
     }
 
     private AdminUserResponse toAdminUserResponse(User user) {
@@ -181,6 +171,12 @@ public class AdminUserService {
                 booking.getStartTime(),
                 booking.getEndTime()
         );
+    }
+
+    private User getManagedUser(Long userId) {
+        return userRepository.findById(Objects.requireNonNull(userId, "userId must not be null"))
+                .filter(user -> user.getRole() == Role.USER)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
     private String normalizeEmail(String email) {

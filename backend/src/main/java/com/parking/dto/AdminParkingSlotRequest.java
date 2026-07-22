@@ -9,7 +9,6 @@ import lombok.Data;
 @Data
 public class AdminParkingSlotRequest {
 
-    @NotNull
     private Long lotId;
 
     @NotBlank
@@ -17,7 +16,7 @@ public class AdminParkingSlotRequest {
 
     @NotNull
     @Min(0)
-    @Max(100)
+    @Max(3)
     private Integer floor;
 
     @NotBlank
@@ -25,4 +24,16 @@ public class AdminParkingSlotRequest {
 
     @NotBlank
     private String status;
+
+    private String zone;
+
+    @NotBlank
+    private String slotType = "STANDARD";
+
+    @Min(0)
+    private Double priceOverride;
+
+    private Boolean evChargingAvailable = false;
+    private Boolean accessibleSlot = false;
+    private String notes;
 }

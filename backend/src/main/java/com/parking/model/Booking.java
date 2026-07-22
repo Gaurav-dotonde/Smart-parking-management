@@ -50,4 +50,9 @@ public class Booking {
     @Column(nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    private LocalDateTime approvedAt;
+    private LocalDateTime checkedInAt;
+    private LocalDateTime checkedOutAt;
+    private LocalDateTime cancelledAt;
 }

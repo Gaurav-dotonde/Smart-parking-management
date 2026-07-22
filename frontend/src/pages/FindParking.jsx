@@ -1,14 +1,36 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { findParking } from '../services/parkingService';
+import { findParking, getActiveLots, getSlots, unwrapList } from '../services/parkingService';
+
+const ordinalFloorNames = ['Ground', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth', 'Eleventh', 'Twelfth', 'Thirteenth', 'Fourteenth', 'Fifteenth', 'Sixteenth', 'Seventeenth', 'Eighteenth', 'Nineteenth', 'Twentieth'];
+const floorName = (floor) => `${ordinalFloorNames[floor] || `Floor ${floor}`} Floor`;
 
 const initialForm = {
   date: '',
   startTime: '',
+  startPeriod: 'AM',
   endTime: '',
-  vehicleType: 'Four Wheeler',
-  floor: 'All Floors',
+  endPeriod: 'AM',
+  lotId: '',
+  vehicleType: '',
+  floor: '',
 };
+
+function to24HourTime(time, period) {
+  if (!time) return '';
+  const [hourValue, minute = '00'] = time.split(':');
+  const hour = Number(hourValue);
+  if (!Number.isInteger(hour) || hour < 1 || hour > 12) return '';
+  const hour24 = (hour % 12) + (period === 'PM' ? 12 : 0);
+  return `${String(hour24).padStart(2, '0')}:${minute}`;
+}
+
+function getLocalDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 function formatDuration(minutes) {
   const hours = minutes / 60;
@@ -37,20 +59,59 @@ export default function FindParking() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [parkingLots, setParkingLots] = useState([]);
+  const [parkingSlots, setParkingSlots] = useState([]);
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const currentMinTime = useMemo(() => {
-    if (form.date !== today) return '';
-    return new Date().toTimeString().slice(0, 5);
-  }, [form.date, today]);
+  useEffect(() => {
+    getActiveLots()
+      .then(async (response) => {
+        const lots = unwrapList(response.data);
+        setParkingLots(lots);
+        const slotResponses = await Promise.all(lots.map((lot) => getSlots(lot.id)));
+        setParkingSlots(slotResponses.flatMap((slotResponse, index) => unwrapList(slotResponse.data).map((slot) => ({
+          ...slot,
+          lotId: lots[index].id,
+        }))));
+      })
+      .catch(() => {
+        setParkingLots([]);
+        setParkingSlots([]);
+      });
+  }, []);
+
+  const floorOptions = useMemo(() => {
+    const counts = new Map();
+    parkingSlots
+      .filter((slot) => form.lotId && (form.lotId === 'all' || String(slot.lotId) === String(form.lotId)) && slot.status === 'AVAILABLE')
+      .forEach((slot) => counts.set(Number(slot.floor), (counts.get(Number(slot.floor)) || 0) + 1));
+    return [...counts.entries()]
+      .sort(([floorA], [floorB]) => floorA - floorB)
+      .map(([floor, count]) => ({ floor, count }));
+  }, [form.lotId, parkingSlots]);
+
+  const totalFloorSlots = useMemo(() => floorOptions.reduce((total, option) => total + option.count, 0), [floorOptions]);
+
+  useEffect(() => {
+    if (form.floor && form.floor !== 'All Floors' && !floorOptions.some(({ floor }) => String(floor) === String(form.floor))) {
+      setForm((current) => ({ ...current, floor: '' }));
+    }
+  }, [floorOptions, form.floor]);
+
+  const today = useMemo(() => getLocalDateValue(), []);
 
   const validate = () => {
-    if (!form.date || !form.startTime || !form.endTime) {
+    if (!form.lotId || !form.date || !form.startTime || !form.endTime || !form.vehicleType || !form.floor) {
       return 'Please fill all required fields.';
     }
 
-    const start = new Date(`${form.date}T${form.startTime}`);
-    const end = new Date(`${form.date}T${form.endTime}`);
+    const startTime = to24HourTime(form.startTime, form.startPeriod);
+    const endTime = to24HourTime(form.endTime, form.endPeriod);
+    if (!startTime || !endTime) {
+      return 'Please enter times from 01:00 to 12:59 and select AM or PM.';
+    }
+
+    const start = new Date(`${form.date}T${startTime}`);
+    const end = new Date(`${form.date}T${endTime}`);
     const now = new Date();
 
     if (end <= start) {
@@ -79,14 +140,20 @@ export default function FindParking() {
     setLoading(true);
     setHasSearched(true);
     try {
+      const startTime = to24HourTime(form.startTime, form.startPeriod);
+      const endTime = to24HourTime(form.endTime, form.endPeriod);
       const res = await findParking({
         date: form.date,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        vehicleType: form.vehicleType,
-        floor: form.floor,
+        startTime,
+        endTime,
+        lotId: form.lotId === 'all' ? undefined : form.lotId,
+        vehicleType: 'All',
+        floor: form.floor === 'All Floors' ? undefined : form.floor,
       });
-      setResults(res.data || []);
+      const matchingResults = (res.data || []).filter((slot) => (
+        form.lotId === 'all' || String(slot.lotId) === String(form.lotId)
+      ));
+      setResults(matchingResults);
     } catch (err) {
       setResults([]);
       setError(err.response?.data?.message || 'Failed to search available slots.');
@@ -103,7 +170,27 @@ export default function FindParking() {
   };
 
   const handleBookNow = (slot) => {
-    navigate(`/lots/${slot.lotId}`);
+    const params = new URLSearchParams({
+      slotId: String(slot.slotId),
+      start: `${form.date}T${to24HourTime(form.startTime, form.startPeriod)}`,
+      end: `${form.date}T${to24HourTime(form.endTime, form.endPeriod)}`,
+      vehicleType: form.vehicleType === 'All' ? (slot.vehicleType || 'Car') : form.vehicleType,
+    });
+    navigate(`/lots/${slot.lotId}?${params.toString()}`);
+  };
+
+  const handleLocationChange = (lotId) => {
+    setForm((current) => ({ ...current, lotId, floor: '', vehicleType: '' }));
+    setResults([]);
+    setError('');
+    setHasSearched(false);
+  };
+
+  const handleFilterChange = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setResults([]);
+    setError('');
+    setHasSearched(false);
   };
 
   return (
@@ -115,7 +202,7 @@ export default function FindParking() {
         </div>
         <div className="find-parking-hero-chip">
           <span className="find-parking-hero-chip-label">Search Filters</span>
-          <span className="find-parking-hero-chip-value">Date, time, type and floor</span>
+          <span className="find-parking-hero-chip-value">Location, date, time, type and floor</span>
         </div>
       </section>
 
@@ -130,52 +217,92 @@ export default function FindParking() {
           </div>
 
           <div className="find-parking-grid">
+            <div className="form-group find-parking-location-filter">
+              <label>Parking Location</label>
+              <select
+                value={form.lotId}
+                onChange={(e) => handleLocationChange(e.target.value)}
+              >
+                <option value="" disabled>Select Location</option>
+                <option value="all">All Locations</option>
+                {parkingLots.map((lot) => (
+                  <option key={lot.id} value={lot.id}>
+                    {lot.name} — {lot.area || lot.location}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="form-group">
               <label>Parking Date</label>
               <input
                 type="date"
                 min={today}
                 value={form.date}
-                onChange={(e) => setForm((current) => ({ ...current, date: e.target.value }))}
+                onChange={(e) => handleFilterChange('date', e.target.value)}
               />
             </div>
             <div className="form-group">
               <label>Start Time</label>
-              <input
-                type="time"
-                min={currentMinTime || undefined}
-                value={form.startTime}
-                onChange={(e) => setForm((current) => ({ ...current, startTime: e.target.value }))}
-              />
+              <div className="find-parking-time-field">
+                <input
+                  type="time"
+                  min="01:00"
+                  max="12:59"
+                  value={form.startTime}
+                  onChange={(e) => handleFilterChange('startTime', e.target.value)}
+                />
+                <select
+                  aria-label="Start time AM or PM"
+                  value={form.startPeriod}
+                  onChange={(e) => handleFilterChange('startPeriod', e.target.value)}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div className="form-group">
               <label>End Time</label>
-              <input
-                type="time"
-                value={form.endTime}
-                onChange={(e) => setForm((current) => ({ ...current, endTime: e.target.value }))}
-              />
+              <div className="find-parking-time-field">
+                <input
+                  type="time"
+                  min="01:00"
+                  max="12:59"
+                  value={form.endTime}
+                  onChange={(e) => handleFilterChange('endTime', e.target.value)}
+                />
+                <select
+                  aria-label="End time AM or PM"
+                  value={form.endPeriod}
+                  onChange={(e) => handleFilterChange('endPeriod', e.target.value)}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div className="form-group">
               <label>Vehicle Type</label>
               <select
                 value={form.vehicleType}
-                onChange={(e) => setForm((current) => ({ ...current, vehicleType: e.target.value }))}
+                onChange={(e) => handleFilterChange('vehicleType', e.target.value)}
               >
-                <option>Two Wheeler</option>
-                <option>Four Wheeler</option>
+                <option value="" disabled>Select Vehicle Type</option>
+                <option value="All">All Vehicle Types</option>
+                <option value="Car">Car</option>
+                <option value="Two Wheeler">Two Wheeler</option>
               </select>
             </div>
             <div className="form-group">
               <label>Floor</label>
               <select
                 value={form.floor}
-                onChange={(e) => setForm((current) => ({ ...current, floor: e.target.value }))}
+                disabled={!form.lotId}
+                onChange={(e) => handleFilterChange('floor', e.target.value)}
               >
-                <option>All Floors</option>
-                <option>Floor 1</option>
-                <option>Floor 2</option>
-                <option>Floor 3</option>
+                <option value="" disabled>{form.lotId ? 'Select Floor' : 'Select Location First'}</option>
+                {form.lotId && <option value="All Floors">All Floors ({totalFloorSlots} slots)</option>}
+                {floorOptions.map(({ floor, count }) => <option key={floor} value={String(floor)}>{floorName(floor)} ({count} slots)</option>)}
               </select>
             </div>
           </div>
@@ -221,7 +348,7 @@ export default function FindParking() {
                   <div>
                     <span className="find-parking-slot">{slot.slotNumber}</span>
                     <h3>{slot.lotName}</h3>
-                    <p>Floor {slot.floor}</p>
+                    <p>{slot.location} · Floor {slot.floor}</p>
                   </div>
                   <span className="find-parking-badge">Available</span>
                 </div>
@@ -229,12 +356,12 @@ export default function FindParking() {
                 <div className="find-parking-meta">
                   <div>
                     <span>Vehicle Type</span>
-                    <strong>{slot.vehicleType}</strong>
+                    <strong>{form.vehicleType === 'All' ? 'Car / Two Wheeler' : form.vehicleType}</strong>
                   </div>
                   <div>
-                    <span>Price per Hour</span>
+                    <span>Price per Day</span>
                     <strong>{'\u20B9'}
-                      {slot.pricePerHour}
+                      {slot.pricePerDay}
                     </strong>
                   </div>
                   <div>

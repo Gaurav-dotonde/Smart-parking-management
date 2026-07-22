@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { formatDisplayName } from '../utils/formatDisplayName';
-import { cancelAdminBooking, getAdminBookingById, getAdminBookings } from '../services/bookingService';
+import { cancelAdminBooking, getAdminBookingById, getAdminBookings, transitionAdminBooking } from '../services/bookingService';
 import { onParkingDataChanged } from '../services/dataSync';
 import { unwrapList } from '../services/parkingService';
 
@@ -27,6 +28,7 @@ const formatDateTime = (value) => {
 };
 
 export default function AdminBookings() {
+  const [searchParams] = useSearchParams();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,6 +41,14 @@ export default function AdminBookings() {
   const [detailsError, setDetailsError] = useState('');
   const [cancelTarget, setCancelTarget] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [transitionTarget, setTransitionTarget] = useState(null);
+
+  useEffect(() => {
+    const requestedStatus = searchParams.get('status');
+    const requestedDate = searchParams.get('date');
+    if (requestedStatus) setBookingStatus(requestedStatus);
+    if (requestedDate === 'today') setDateFilter(new Date().toISOString().slice(0, 10));
+  }, [searchParams]);
 
   const loadBookings = async () => {
     setLoading(true);
@@ -114,6 +124,14 @@ export default function AdminBookings() {
     }
   };
 
+  const confirmTransition = async () => {
+    if (!transitionTarget) return;
+    setActionLoading(true);
+    try { await transitionAdminBooking(transitionTarget.booking.id, transitionTarget.action); setTransitionTarget(null); await loadBookings(); }
+    catch (err) { setError(err.response?.data?.message || 'Failed to update booking status.'); }
+    finally { setActionLoading(false); }
+  };
+
   return (
     <div className="container admin-page">
       <h2 className="page-title">All Bookings</h2>
@@ -151,6 +169,8 @@ export default function AdminBookings() {
             <select value={bookingStatus} onChange={(e) => setBookingStatus(e.target.value)}>
               <option>All</option>
               <option>PENDING</option>
+              <option>BOOKED</option>
+              <option>RESERVED</option>
               <option>ACTIVE</option>
               <option>COMPLETED</option>
               <option>CANCELLED</option>
@@ -207,7 +227,10 @@ export default function AdminBookings() {
               </thead>
               <tbody>
                 {filteredBookings.map((booking) => {
-                  const canCancel = booking.bookingStatus === 'PENDING' || booking.bookingStatus === 'ACTIVE';
+                  const canCancel = !['CANCELLED', 'COMPLETED'].includes(booking.bookingStatus);
+                  const lifecycleAction = booking.bookingStatus === 'PENDING' ? ['approve', 'Approve']
+                    : ['APPROVED', 'RESERVED', 'ACTIVE'].includes(booking.bookingStatus) ? ['check-in', 'Check In']
+                      : booking.bookingStatus === 'OCCUPIED' ? ['check-out', 'Check Out'] : null;
                   return (
                     <tr key={booking.id}>
                       <td>{booking.id}</td>
@@ -231,6 +254,7 @@ export default function AdminBookings() {
                           <button type="button" className="btn btn-secondary" onClick={() => openDetails(booking.id)}>
                             View Details
                           </button>
+                          {lifecycleAction && <button type="button" className="btn" onClick={() => setTransitionTarget({ booking, action: lifecycleAction[0], label: lifecycleAction[1] })}>{lifecycleAction[1]}</button>}
                           <button
                             type="button"
                             className="btn btn-danger"
@@ -297,6 +321,7 @@ export default function AdminBookings() {
           </div>
         </div>
       )}
+      {transitionTarget && <div className="modal-backdrop"><div className="modal-card confirm-card"><h3>{transitionTarget.label} Booking</h3><p>Confirm {transitionTarget.label.toLowerCase()} for booking #{transitionTarget.booking.id}. This updates the booking and slot together.</p><div className="manage-slots-actions"><button className="btn btn-secondary" onClick={() => setTransitionTarget(null)} disabled={actionLoading}>Cancel</button><button className="btn" onClick={confirmTransition} disabled={actionLoading}>{actionLoading ? 'Updating...' : `Confirm ${transitionTarget.label}`}</button></div></div></div>}
     </div>
   );
 }

@@ -56,6 +56,13 @@ public class User {
     @Column(name = "profile_photo")
     private String profilePhoto;
 
+    @Column(name = "archived", nullable = false)
+    @Builder.Default
+    private boolean archived = false;
+
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) {

@@ -16,7 +16,6 @@ const summaryCards = [
   { title: 'Total Users', key: 'total', tone: 'blue' },
   { title: 'Active Users', key: 'active', tone: 'green' },
   { title: 'Blocked Users', key: 'blocked', tone: 'red' },
-  { title: 'Total Admins', key: 'admins', tone: 'purple' },
 ];
 
 const formatDate = (value) => {
@@ -87,7 +86,6 @@ export default function AdminUsers() {
     total: users.length,
     active: users.filter((user) => user.accountStatus === 'ACTIVE').length,
     blocked: users.filter((user) => user.accountStatus === 'BLOCKED').length,
-    admins: users.filter((user) => user.role === 'ADMIN').length,
   }), [users]);
 
   const openDetails = async (userId) => {
@@ -206,7 +204,6 @@ export default function AdminUsers() {
             <label>Role Filter</label>
             <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
               <option>All</option>
-              <option>ADMIN</option>
               <option>USER</option>
             </select>
           </div>
@@ -279,7 +276,7 @@ export default function AdminUsers() {
                           {user.accountStatus === 'BLOCKED' ? 'Unblock' : 'Block'}
                         </button>
                         <button type="button" className="btn btn-danger" onClick={() => setDeleteTarget(user)}>
-                          Delete User
+                          Archive User
                         </button>
                       </div>
                     </td>
@@ -317,14 +314,12 @@ export default function AdminUsers() {
               </div>
               <div className="form-group">
                 <label>Role</label>
-                <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value, accountStatus: e.target.value === 'ADMIN' ? 'ACTIVE' : userForm.accountStatus })}>
-                  <option value="USER">USER</option><option value="ADMIN">ADMIN</option>
-                </select>
+                <select value="USER" disabled><option value="USER">USER</option></select>
               </div>
               {formMode === 'edit' && (
                 <div className="form-group">
                   <label>Status</label>
-                  <select disabled={userForm.role === 'ADMIN'} value={userForm.accountStatus} onChange={(e) => setUserForm({ ...userForm, accountStatus: e.target.value })}>
+                  <select value={userForm.accountStatus} onChange={(e) => setUserForm({ ...userForm, accountStatus: e.target.value })}>
                     <option value="ACTIVE">ACTIVE</option><option value="BLOCKED">BLOCKED</option><option value="INACTIVE">INACTIVE</option>
                   </select>
                 </div>
@@ -423,14 +418,14 @@ export default function AdminUsers() {
       {deleteTarget && (
         <div className="modal-backdrop">
           <div className="modal-card confirm-card">
-            <h3>Delete User</h3>
-            <p>Are you sure you want to delete {formatDisplayName(deleteTarget.name, 'this user')}?</p>
+            <h3>Archive User</h3>
+            <p>Archive {formatDisplayName(deleteTarget.name, 'this user')}? Their historical bookings remain intact and the account becomes inactive.</p>
             <div className="manage-slots-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setDeleteTarget(null)} disabled={actionLoading}>
                 Cancel
               </button>
               <button type="button" className="btn btn-danger" onClick={confirmDelete} disabled={actionLoading}>
-                {actionLoading ? 'Deleting...' : 'Confirm Delete'}
+                {actionLoading ? 'Archiving...' : 'Confirm Archive'}
               </button>
             </div>
           </div>

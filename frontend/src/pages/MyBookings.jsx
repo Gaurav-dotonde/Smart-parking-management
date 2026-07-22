@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getMyBookings, cancelBooking } from '../services/bookingService';
 import { unwrapList } from '../services/parkingService';
 
@@ -25,11 +25,16 @@ function StatusBadge({ status }) {
 
 export default function MyBookings() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const confirmedBooking = location.state?.bookingConfirmed ? location.state.booking : null;
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All Status');
+  const [successMessage, setSuccessMessage] = useState(
+    confirmedBooking
+      ? `Booking confirmed successfully! Slot ${confirmedBooking.slotNumber || ''} is reserved for you.`
+      : ''
+  );
 
   const load = () => {
     setLoading(true);
@@ -45,6 +50,13 @@ export default function MyBookings() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!location.state?.bookingConfirmed) return undefined;
+    navigate(location.pathname, { replace: true, state: null });
+    const timer = window.setTimeout(() => setSuccessMessage(''), 8000);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, location.state, navigate]);
 
   const handleCancel = async (id) => {
     setError('');
@@ -62,19 +74,6 @@ export default function MyBookings() {
     return 'badge badge-completed';
   };
 
-  const filteredBookings = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    return bookings.filter((booking) => {
-      const matchesText =
-        !query ||
-        [booking.bookingId, booking.lotName, booking.slotNumber, booking.vehicleNumber]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(query));
-      const matchesStatus = statusFilter === 'All Status' || booking.status === statusFilter.replace(' ', '');
-      return matchesText && matchesStatus;
-    });
-  }, [bookings, searchText, statusFilter]);
-
   const stats = useMemo(() => {
     const total = bookings.length;
     const upcoming = bookings.filter((booking) => booking.status === 'ACTIVE').length;
@@ -85,6 +84,16 @@ export default function MyBookings() {
 
   return (
     <div className="my-bookings-page user-page-section">
+      {successMessage && (
+        <div className="my-bookings-success" role="status" aria-live="polite">
+          <span className="my-bookings-success-icon">✓</span>
+          <div>
+            <strong>Parking slot booked successfully!</strong>
+            <p>{successMessage}</p>
+          </div>
+          <button type="button" aria-label="Close success message" onClick={() => setSuccessMessage('')}>×</button>
+        </div>
+      )}
       <section className="user-page-card my-bookings-hero">
         <div>
           <p className="user-page-eyebrow">Bookings</p>
@@ -100,40 +109,6 @@ export default function MyBookings() {
         <StatCard tone="red" label="Cancelled" value={stats.cancelled} subtext="All time" icon="✕" />
       </section>
 
-      <section className="user-page-card my-bookings-filter-card">
-        <div className="my-bookings-filter-grid user-page-toolbar">
-          <div className="form-group">
-            <label>From Date</label>
-            <input type="date" disabled />
-          </div>
-          <div className="form-group">
-            <label>To Date</label>
-            <input type="date" disabled />
-          </div>
-          <div className="form-group">
-            <label>Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option>All Status</option>
-              <option>ACTIVE</option>
-              <option>COMPLETED</option>
-              <option>CANCELLED</option>
-            </select>
-          </div>
-          <div className="form-group my-bookings-search-group">
-            <label>Search</label>
-            <input
-              type="text"
-              placeholder="Search by location"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-          <button type="button" className="btn btn-secondary my-bookings-filter-btn" onClick={() => setSearchText('')}>
-            Filter
-          </button>
-        </div>
-      </section>
-
       <section className="user-page-card my-bookings-list-card">
         <div className="my-bookings-list-head">
           <div>
@@ -145,11 +120,11 @@ export default function MyBookings() {
         {error && <p className="error-text">{error}</p>}
         {loading && <p>Loading...</p>}
 
-        {!loading && filteredBookings.length === 0 && (
+        {!loading && bookings.length === 0 && (
           <div className="empty-state">No bookings yet. Go book a slot!</div>
         )}
 
-        {!loading && filteredBookings.length > 0 && (
+        {!loading && bookings.length > 0 && (
           <div className="dashboard-table-wrap user-responsive-table">
             <table className="dashboard-table my-bookings-table">
               <thead>
@@ -165,7 +140,7 @@ export default function MyBookings() {
                 </tr>
               </thead>
               <tbody>
-                {filteredBookings.map((booking) => (
+                {bookings.map((booking) => (
                   <tr key={booking.id}>
                     <td>
                       <strong>#{booking.bookingId || booking.id}</strong>
@@ -226,7 +201,7 @@ export default function MyBookings() {
         )}
 
         <div className="my-bookings-footer">
-          <span>Showing 1 to {filteredBookings.length} of {bookings.length} bookings</span>
+          <span>Showing 1 to {bookings.length} of {bookings.length} bookings</span>
           <div className="my-bookings-pagination">
             <button type="button" className="my-bookings-page-btn">‹</button>
             <button type="button" className="my-bookings-page-btn active">1</button>

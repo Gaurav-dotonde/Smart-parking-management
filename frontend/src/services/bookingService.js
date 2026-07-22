@@ -21,3 +21,8 @@ export const cancelAdminBooking = async (id) => {
   emitParkingDataChanged({ type: 'booking-cancelled', bookingId: id });
   return response;
 };
+export const transitionAdminBooking = async (id, action) => {
+  const response = await api.put(`/admin/bookings/${id}/${action}`);
+  emitParkingDataChanged({ type: 'booking-status', bookingId: id, action });
+  return response;
+};

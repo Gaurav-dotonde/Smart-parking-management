@@ -1,0 +1,379 @@
+.direct-booking-page {
+  min-height: 100vh;
+  padding: 20px 16px 36px;
+  color: #16324f;
+  background:
+    radial-gradient(circle at 0 30%, rgba(8, 123, 234, .07), transparent 28%),
+    radial-gradient(circle at 100% 80%, rgba(8, 123, 234, .06), transparent 25%),
+    #eef8ff;
+}
+
+.direct-booking-shell {
+  width: min(960px, 100%);
+  margin: 0 auto;
+}
+
+.direct-booking-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  margin: 0 0 10px;
+  padding: 7px 12px;
+  border: 1px solid #c7e3f8;
+  border-radius: 999px;
+  background: #fff;
+  color: #0868c7;
+  box-shadow: 0 4px 12px rgba(22, 72, 118, .06);
+  cursor: pointer;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 750;
+}
+
+.direct-booking-back:hover { border-color: #7dbced; background: #f7fbff; }
+.direct-booking-back:focus-visible { outline: 3px solid rgba(8, 123, 234, .22); outline-offset: 2px; }
+
+.direct-booking-container {
+  overflow: hidden;
+  border: 1px solid #bcdcf4;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(24, 68, 108, .12);
+}
+
+.direct-booking-header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 94px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #d9eaf6;
+  background: linear-gradient(110deg, #fff 0%, #f4faff 100%);
+}
+
+.direct-booking-place-icon {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #1291fa, #0868d7);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(8, 105, 218, .25);
+  font-size: 1.08rem;
+  font-weight: 900;
+}
+
+.direct-booking-heading { min-width: 0; flex: 1; }
+.direct-booking-heading > span {
+  color: #087bea;
+  font-size: .58rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.direct-booking-heading h1 { margin: 2px 0; color: #112d49; font-size: clamp(1.15rem, 2vw, 1.4rem); line-height: 1.15; }
+.direct-booking-heading p { margin: 0; color: #6b8198; font-size: .67rem; }
+.direct-booking-facility-meta { display: flex; flex-wrap: wrap; gap: 5px 13px; margin-top: 5px; }
+.direct-booking-facility-meta span { color: #526f8a; font-size: .56rem; font-weight: 700; }
+.direct-booking-facility-meta span:first-child { color: #f59e0b; }
+.direct-booking-facility-meta span:first-child i { color: #cbd5e1; font-style: normal; }
+.direct-booking-facility-meta b { margin-left: 3px; color: #526f8a; }
+
+.direct-booking-rate {
+  flex: 0 0 100px;
+  padding: 9px 12px;
+  border: 1px solid #b7dcf8;
+  border-radius: 14px;
+  background: #eef8ff;
+  text-align: center;
+}
+.direct-booking-rate span,
+.direct-booking-rate small { display: block; color: #6b8198; font-size: .56rem; font-weight: 700; }
+.direct-booking-rate strong { display: block; margin: 2px 0; color: #0872dc; font-size: 1.05rem; }
+
+.direct-booking-steps {
+  display: grid;
+  grid-template-columns: auto minmax(18px, 1fr) auto minmax(18px, 1fr) auto minmax(18px, 1fr) auto minmax(18px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 62px;
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid #d9eaf6;
+  background: #fbfdff;
+}
+.direct-booking-steps > div { display: flex; align-items: center; gap: 7px; min-width: 0; color: #8b9cac; }
+.direct-booking-steps > div > span {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid #cbd9e5;
+  border-radius: 50%;
+  background: #f5f8fb;
+  font-size: .65rem;
+  font-weight: 850;
+}
+.direct-booking-steps strong,
+.direct-booking-steps small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.direct-booking-steps strong { font-size: .62rem; }
+.direct-booking-steps small { margin-top: 1px; font-size: .49rem; }
+.direct-booking-steps > i { height: 1px; min-width: 20px; background: #c7ddeb; }
+.direct-booking-steps > div.is-active { color: #0872dc; }
+.direct-booking-steps > div.is-active > span { border: 2px solid #087bea; background: #fff; color: #0872dc; box-shadow: 0 0 0 3px rgba(8, 123, 234, .1); }
+.direct-booking-steps > div.is-complete { color: #128654; }
+.direct-booking-steps > div.is-complete > span { border-color: #12b76a; background: #e9fbf2; color: #0b9a58; }
+
+.direct-booking-wizard { padding: 20px; background: #f8fcff; }
+.direct-booking-primary { min-width: 0; }
+.direct-booking-card,
+.direct-booking-summary {
+  position: relative;
+  width: min(700px, 100%);
+  margin: 0 auto;
+  padding: 21px 22px;
+  overflow: hidden;
+  border: 1px solid #c7e3f8;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(24, 73, 118, .08);
+}
+.direct-booking-card::before,
+.direct-booking-summary::before { position: absolute; inset: 0 0 auto; height: 3px; background: #087bea; content: ''; }
+
+.direct-booking-section-head,
+.direct-booking-section-head > div { display: flex; align-items: center; gap: 10px; }
+.direct-booking-section-head { justify-content: space-between; margin-bottom: 17px; }
+.direct-booking-step {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 11px;
+  background: #e9f5ff;
+  color: #0872dc;
+  font-size: .76rem;
+  font-weight: 850;
+}
+.direct-booking-section-head h2 { margin: 0 0 2px; color: #16324f; font-size: 1.15rem; line-height: 1.2; }
+.direct-booking-section-head p { margin: 0; color: #6b8198; font-size: .7rem; }
+.direct-booking-required { padding: 5px 8px; border-radius: 999px; background: #f0f5f9; color: #6b8198; font-size: .58rem; font-weight: 750; white-space: nowrap; }
+
+.direct-booking-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.direct-booking-form-grid label { display: grid; gap: 6px; min-width: 0; }
+.direct-booking-form-grid label > span { color: #36536f; font-size: .72rem; font-weight: 750; }
+.direct-booking-form-grid input,
+.direct-booking-form-grid select {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  padding: 10px 13px;
+  border: 1px solid #bed8ec;
+  border-radius: 12px;
+  background: #fbfdff;
+  color: #16324f;
+  outline: none;
+  font: inherit;
+  font-size: .78rem;
+}
+.direct-booking-form-grid input:hover,
+.direct-booking-form-grid select:hover { border-color: #83bde9; }
+.direct-booking-form-grid input:focus-visible,
+.direct-booking-form-grid select:focus-visible { border-color: #087bea; box-shadow: 0 0 0 3px rgba(8, 123, 234, .14); background: #fff; }
+
+.direct-booking-time-insight {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid #c7e3f8;
+  border-radius: 12px;
+  background: #eef8ff;
+}
+.direct-booking-time-insight > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.direct-booking-time-insight span { color: #6b8198; font-size: .63rem; }
+.direct-booking-time-insight strong { color: #0872dc; font-size: .73rem; }
+.direct-booking-time-insight p { grid-column: 1 / -1; margin: 0; padding-top: 7px; border-top: 1px solid #fecaca; color: #b42318; font-size: .64rem; }
+.direct-booking-time-insight.has-error { border-color: #fecaca; background: #fff7f7; }
+
+.direct-booking-live { display: inline-flex; align-items: center; gap: 6px; color: #128654; font-size: .62rem; font-weight: 800; white-space: nowrap; }
+.direct-booking-live i { width: 7px; height: 7px; border-radius: 50%; background: #12b76a; box-shadow: 0 0 0 3px rgba(18, 183, 106, .12); }
+.direct-booking-floor-tabs { display: flex; gap: 8px; padding: 1px 1px 10px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #9cc9ea transparent; }
+.direct-booking-floor-tabs button {
+  min-width: 96px;
+  padding: 8px 10px;
+  border: 1px solid #d1e0eb;
+  border-radius: 10px;
+  background: #f8fbfd;
+  color: #526f8a;
+  cursor: pointer;
+  font: inherit;
+  font-size: .68rem;
+  font-weight: 800;
+  text-align: left;
+}
+.direct-booking-floor-tabs button small { display: block; margin-top: 2px; color: #8294a6; font-size: .54rem; font-weight: 650; }
+.direct-booking-floor-tabs button.is-active { border-color: #087bea; background: #eaf5ff; color: #0868c7; box-shadow: 0 0 0 2px rgba(8, 123, 234, .09); }
+.direct-booking-floor-tabs button:focus-visible { outline: 3px solid rgba(8, 123, 234, .2); outline-offset: 2px; }
+
+.direct-booking-slot-meta { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #e1edf6; }
+.direct-booking-slot-meta > strong { color: #16324f; font-size: .75rem; }
+.direct-booking-slot-meta > span { flex: 1; color: #6b8198; font-size: .62rem; }
+.direct-booking-slot-meta > div { display: flex; gap: 8px; color: #64798d; font-size: .56rem; }
+.direct-booking-slot-meta > div span { display: inline-flex; align-items: center; gap: 4px; }
+.direct-booking-slot-meta i { width: 8px; height: 8px; border-radius: 3px; }
+.direct-booking-slot-meta i.available { background: #12b76a; }
+.direct-booking-slot-meta i.booked { background: #ef4444; }
+.direct-booking-slot-meta i.selected { background: #087bea; }
+
+.direct-booking-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  height: 280px;
+  padding: 6px 7px 6px 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #8fc3e9 #edf6fc;
+}
+.direct-booking-slot-grid::-webkit-scrollbar { width: 7px; }
+.direct-booking-slot-grid::-webkit-scrollbar-track { border-radius: 8px; background: #edf6fc; }
+.direct-booking-slot-grid::-webkit-scrollbar-thumb { border-radius: 8px; background: #8fc3e9; }
+.direct-booking-slot-grid button {
+  min-width: 0;
+  min-height: 52px;
+  max-height: 58px;
+  padding: 7px 4px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+}
+.direct-booking-slot-grid button strong,
+.direct-booking-slot-grid button small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.direct-booking-slot-grid button strong { font-size: .65rem; }
+.direct-booking-slot-grid button small { margin-top: 3px; font-size: .5rem; }
+.direct-booking-slot-grid button.is-available { border-color: #ace7c9; background: #ebfbf3; color: #087a44; }
+.direct-booking-slot-grid button.is-available:hover { border-color: #12b76a; box-shadow: 0 5px 12px rgba(18, 183, 106, .12); }
+.direct-booking-slot-grid button.is-unavailable { border-color: #f8c7c7; background: #fff0f0; color: #b42318; cursor: not-allowed; opacity: .78; }
+.direct-booking-slot-grid button.is-selected { border-color: #0562bd; background: #087bea; color: #fff; box-shadow: 0 6px 14px rgba(8, 123, 234, .24); }
+.direct-booking-slot-grid button:focus-visible { outline: 3px solid rgba(8, 123, 234, .24); outline-offset: 2px; }
+
+.direct-booking-slot-selection { display: flex; justify-content: flex-end; gap: 28px; margin-top: 9px; padding: 8px 11px; border: 1px solid #d5e8f6; border-radius: 10px; background: #f7fbfe; }
+.direct-booking-slot-selection > div { display: flex; align-items: center; gap: 7px; }
+.direct-booking-slot-selection span { color: #6b8198; font-size: .58rem; }
+.direct-booking-slot-selection strong { color: #0872dc; font-size: .68rem; }
+
+.direct-booking-inline-error { margin: 10px 0 0; padding: 8px 10px; border: 1px solid #fecaca; border-radius: 9px; background: #fff4f4; color: #b42318; font-size: .63rem; }
+.direct-booking-wizard-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 15px; }
+.direct-booking-wizard-actions .btn { min-height: 43px; padding: 9px 18px; border-radius: 12px; font-size: .75rem; font-weight: 800; }
+.direct-booking-wizard-actions .direct-booking-next,
+.direct-booking-confirm { border: 0; background: #087bea; color: #fff; box-shadow: 0 8px 18px rgba(8, 123, 234, .2); }
+.direct-booking-wizard-actions .direct-booking-next:hover,
+.direct-booking-confirm:hover { background: #066bd0; }
+.direct-booking-wizard-actions .btn-secondary { border: 1px solid #d3e0ea; background: #eef3f7; color: #28445f; box-shadow: none; }
+.direct-booking-wizard-actions .btn:focus-visible { outline: 3px solid rgba(8, 123, 234, .23); outline-offset: 2px; }
+.direct-booking-wizard-actions .btn:active { transform: translateY(1px); }
+.direct-booking-wizard-actions .btn:disabled { cursor: not-allowed; opacity: .62; box-shadow: none; }
+
+.direct-booking-summary { width: min(650px, 100%); padding: 18px 20px; }
+.direct-booking-summary-head { padding-bottom: 10px; border-bottom: 1px solid #dceaf4; text-align: center; }
+.direct-booking-summary-head span,
+.direct-booking-summary-head small { display: block; }
+.direct-booking-summary-head span { color: #16324f; font-size: 1rem; font-weight: 850; }
+.direct-booking-summary-head small { margin-top: 2px; color: #6b8198; font-size: .6rem; }
+.direct-booking-selected-slot { margin: 11px 0; padding: 12px; border: 1px solid #afd8f7; border-radius: 13px; background: #eaf6ff; text-align: center; }
+.direct-booking-selected-slot span,
+.direct-booking-selected-slot small { display: block; color: #6b8198; font-size: .58rem; font-weight: 700; }
+.direct-booking-selected-slot strong { display: block; margin: 2px 0; color: #0872dc; font-size: 1.22rem; }
+.direct-booking-summary-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid #dce9f3; border-radius: 11px; background: #dce9f3; }
+.direct-booking-summary-rows > div { min-width: 0; padding: 8px 10px; background: #fff; }
+.direct-booking-summary-rows span,
+.direct-booking-summary-rows strong { display: block; overflow-wrap: anywhere; }
+.direct-booking-summary-rows span { color: #6b8198; font-size: .58rem; }
+.direct-booking-summary-rows strong { margin-top: 3px; color: #28445f; font-size: .66rem; }
+.direct-booking-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 11px 0; padding: 11px 13px; border-radius: 11px; background: #eef8ff; }
+.direct-booking-total span { color: #36536f; font-size: .68rem; font-weight: 800; }
+.direct-booking-total span small { display: block; margin-top: 2px; color: #7d91a4; font-size: .5rem; font-weight: 600; }
+.direct-booking-total > strong { color: #0872dc; font-size: 1.2rem; }
+.direct-booking-summary .direct-booking-wizard-actions { margin-top: 0; }
+.direct-booking-summary .direct-booking-confirm { flex: 1; }
+.direct-booking-spinner { display: inline-block; width: 13px; height: 13px; margin-right: 6px; border: 2px solid rgba(255,255,255,.45); border-top-color: #fff; border-radius: 50%; vertical-align: -2px; animation: direct-booking-spin .7s linear infinite; }
+.direct-booking-security { display: flex; align-items: center; gap: 7px; margin-top: 8px; padding: 7px 9px; border-radius: 9px; background: #effaf4; color: #267453; }
+.direct-booking-security > span { display: grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: #d8f5e5; font-size: .58rem; font-weight: 900; }
+.direct-booking-security strong,
+.direct-booking-security small { display: block; }
+.direct-booking-security strong { font-size: .58rem; }
+.direct-booking-security small { margin-top: 1px; color: #698a7a; font-size: .49rem; }
+
+.direct-booking-loading,
+.direct-booking-error,
+.direct-booking-notice { padding: 12px 14px; border: 1px solid #c7e3f8; border-radius: 11px; background: #fff; color: #36536f; font-size: .75rem; }
+.direct-booking-error { border-color: #fecaca; background: #fff7f7; color: #b42318; }
+.direct-booking-notice { margin: 0; border-width: 0 0 1px; border-radius: 0; border-color: #fde68a; background: #fffbeb; color: #92400e; }
+
+.saas-booking-success-backdrop { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; padding: 20px; background: rgba(7, 22, 42, .68); backdrop-filter: blur(7px); animation: saas-booking-fade .2s ease-out; }
+.saas-booking-success { width: min(500px, 100%); padding: 28px; border: 1px solid #d7e8f7; border-radius: 22px; background: #fff; box-shadow: 0 30px 80px rgba(5,24,48,.28); text-align: center; animation: saas-booking-pop .25s ease-out; }
+.saas-booking-success-icon { display: grid; width: 60px; height: 60px; margin: 0 auto 14px; place-items: center; border-radius: 50%; background: linear-gradient(145deg,#20c777,#149a58); color: #fff; box-shadow: 0 12px 28px rgba(25,170,98,.28); font-size: 1.6rem; font-weight: 900; }
+.saas-booking-success-eyebrow { color: #168050; font-size: .66rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.saas-booking-success h2 { margin: 7px 0; color: #10213b; font-size: 1.35rem; }
+.saas-booking-success > p { margin: 0; color: #6d8196; font-size: .78rem; }
+.saas-booking-success-details { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; margin: 20px 0; text-align: left; }
+.saas-booking-success-details > div { padding: 11px; border: 1px solid #d9e8f5; border-radius: 10px; background: #f7fbff; }
+.saas-booking-success-details span,
+.saas-booking-success-details strong { display: block; }
+.saas-booking-success-details span { color: #74889c; font-size: .61rem; }
+.saas-booking-success-details strong { margin-top: 4px; color: #172c47; font-size: .75rem; overflow-wrap: anywhere; }
+.saas-booking-success-primary { width: 100%; min-height: 45px; border-radius: 11px; font-weight: 850; }
+.saas-booking-success-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 9px; }
+.saas-booking-success-actions button { min-height: 38px; border: 1px solid #ccddeb; border-radius: 10px; background: #fff; color: #36536f; cursor: pointer; font: inherit; font-size: .68rem; font-weight: 750; }
+.saas-booking-success-actions button:hover { border-color: #81b5e8; background: #f2f8ff; color: #0868d3; }
+
+@keyframes direct-booking-spin { to { transform: rotate(360deg); } }
+@keyframes saas-booking-fade { from { opacity: 0; } }
+@keyframes saas-booking-pop { from { opacity: 0; transform: translateY(12px) scale(.97); } }
+
+@media (max-width: 820px) {
+  .direct-booking-page { padding-inline: 14px; }
+  .direct-booking-steps { overflow-x: auto; grid-template-columns: auto 24px auto 24px auto 24px auto 24px auto; scrollbar-width: thin; }
+  .direct-booking-slot-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .direct-booking-page { padding: 12px 12px 28px; }
+  .direct-booking-container { border-radius: 17px; }
+  .direct-booking-header { align-items: flex-start; flex-wrap: wrap; min-height: 0; padding: 14px; }
+  .direct-booking-rate { width: 100%; flex-basis: 100%; text-align: left; }
+  .direct-booking-steps { min-height: 52px; padding: 8px 10px; }
+  .direct-booking-steps small { display: none; }
+  .direct-booking-wizard { padding: 12px; }
+  .direct-booking-card,
+  .direct-booking-summary { padding: 17px 15px; border-radius: 15px; }
+  .direct-booking-section-head { align-items: flex-start; }
+  .direct-booking-required { display: none; }
+  .direct-booking-form-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .direct-booking-time-insight { grid-template-columns: minmax(0, 1fr); }
+  .direct-booking-time-insight p { grid-column: auto; }
+  .direct-booking-slot-meta { align-items: flex-start; flex-wrap: wrap; }
+  .direct-booking-slot-meta > span { flex: 1 1 auto; }
+  .direct-booking-slot-meta > div { width: 100%; }
+  .direct-booking-slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); height: 270px; }
+  .direct-booking-slot-selection { justify-content: space-between; }
+  .direct-booking-wizard-actions { flex-wrap: wrap; }
+  .direct-booking-wizard-actions .btn { flex: 1 1 140px; }
+  .direct-booking-summary-rows { grid-template-columns: minmax(0, 1fr); }
+  .saas-booking-success { padding: 22px 18px; }
+  .saas-booking-success-details { grid-template-columns: minmax(0,1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .direct-booking-spinner,
+  .saas-booking-success-backdrop,
+  .saas-booking-success { animation: none; }
+}
