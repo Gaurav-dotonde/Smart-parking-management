@@ -13,6 +13,17 @@ const summaryCards = [
   { title: 'Cancelled Bookings', key: 'cancelled', tone: 'red' },
 ];
 
+function BookingStatIcon({ type }) {
+  const icons = {
+    total: <><rect x="4" y="5" width="16" height="15" rx="2.5" /><path d="M8 3v4m8-4v4M4 10h16M8 14h3m-3 3h6" /></>,
+    today: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2M7 3.5l-2 2m12-2 2 2" /></>,
+    active: <><path d="M4 15v-4l2-4h12l2 4v4M3 15h18v3H3z" /><circle cx="7" cy="12" r="1" /><circle cx="17" cy="12" r="1" /><path d="m9 4 2 2 4-4" /></>,
+    completed: <><rect x="4" y="5" width="16" height="15" rx="2.5" /><path d="M8 3v4m8-4v4M4 10h16m4 3-6 6-3-3" /></>,
+    cancelled: <><rect x="4" y="5" width="16" height="15" rx="2.5" /><path d="M8 3v4m8-4v4M4 10h16m-5 3 4 4m0-4-4 4" /></>,
+  };
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{icons[type]}</svg>;
+}
+
 const isSameDay = (value) => {
   if (!value) return false;
   const date = new Date(value);
@@ -134,13 +145,17 @@ export default function AdminBookings() {
 
   return (
     <div className="container admin-page">
-      <h2 className="page-title">All Bookings</h2>
-      <p className="subtitle">Track, filter, and manage all bookings in one place.</p>
+      <div className="admin-compact-page-head admin-module-head">
+        <div><span className="admin-module-eyebrow">Reservation operations</span><h2>Booking Management</h2><p>Track every user reservation, payment, vehicle and parking slot.</p></div>
+        <button type="button" className="admin-secondary-button" onClick={loadBookings}>↻ Refresh Data</button>
+      </div>
 
       <div className="dashboard-stats-grid bookings-stats-grid">
         {summaryCards.map((card) => (
           <div key={card.key} className="card dashboard-stat-card">
-            <div className={`dashboard-stat-icon ${card.tone}`}></div>
+            <div className={`dashboard-stat-icon admin-booking-stat-icon ${card.tone}`}>
+              <BookingStatIcon type={card.key} />
+            </div>
             <div>
               <span className="dashboard-stat-title">{card.title}</span>
               <strong className="dashboard-stat-value">{summary[card.key]}</strong>

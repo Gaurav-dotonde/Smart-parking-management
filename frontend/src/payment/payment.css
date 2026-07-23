@@ -41,6 +41,12 @@
 .payment-placeholder-actions { display: flex; gap: 10px; margin-top: 18px; }
 .payment-placeholder-actions .btn { flex: 1; min-height: 44px; border-radius: 12px; }
 .payment-placeholder-card > small { display: block; margin-top: 12px; color: #8294a6; }
+.payment-methods { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; text-align:left; }
+.payment-methods > span { width:100%; color:#5d7188; font-size:.72rem; font-weight:750; }
+.payment-methods button { flex:1; min-width:105px; padding:10px; border:1px solid #d4e2ef; border-radius:10px; color:#53677f; background:#fff; font-weight:700; cursor:pointer; }
+.payment-methods button.active { color:#075cca; border-color:#2583eb; background:#edf6ff; box-shadow:0 0 0 2px #dbeafe; }
+.payment-pending-text { color:#b76b00; }
+.payment-paid-icon { display:grid; place-items:center; width:64px;height:64px;margin:0 auto 14px;border-radius:50%;color:#fff;background:#16a66a;font-size:2rem;font-weight:900;box-shadow:0 12px 25px rgba(22,166,106,.23); }
 .payment-state { padding: 24px; text-align: center; }
 .payment-state-success { color: #128654; }
 .payment-state-failed { color: #b42318; }

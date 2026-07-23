@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLotById, getSlots, unwrapList } from '../services/parkingService';
 import { bookSlot } from '../services/bookingService';
@@ -47,9 +47,9 @@ function BookingSuccessModal({ booking, lotName, slotNumber, amount, onDownload,
     <div className="saas-booking-success-backdrop" role="presentation">
       <section className="saas-booking-success" role="dialog" aria-modal="true" aria-labelledby="booking-success-title">
         <div className="saas-booking-success-icon" aria-hidden="true">✓</div>
-        <span className="saas-booking-success-eyebrow">Reservation confirmed</span>
-        <h2 id="booking-success-title">Your parking slot is secured!</h2>
-        <p>A confirmation has been created and your booking is ready.</p>
+        <span className="saas-booking-success-eyebrow">Slot reserved</span>
+        <h2 id="booking-success-title">Complete payment to confirm</h2>
+        <p>Your slot is reserved temporarily. Finish payment for this booking.</p>
         <div className="saas-booking-success-details">
           <div><span>Booking ID</span><strong>#{booking.id}</strong></div>
           <div><span>Slot Number</span><strong>{booking.slotNumber || slotNumber}</strong></div>
@@ -91,6 +91,9 @@ export default function SlotBooking() {
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [bookingSuccess, setBookingSuccess] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
+  const [paymentBooking, setPaymentBooking] = useState(null);
+  const paymentBookingRef = useRef(null);
+  const bookingInProgressRef = useRef(false);
 
   const loadSlots = useCallback(async () => {
     const res = await getSlots(id);
@@ -100,6 +103,7 @@ export default function SlotBooking() {
       if (!targetSlotId) return prev;
       const fresh = unwrapList(res.data).find((slot) => slot.id === targetSlotId);
       if (!fresh || fresh.status !== 'AVAILABLE') {
+        if (bookingInProgressRef.current || paymentBookingRef.current) return prev;
         setNotice('The slot you selected was just booked by someone else. Please choose another.');
         return null;
       }
@@ -213,13 +217,14 @@ export default function SlotBooking() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleProceedToPayment = () => {
-    setError('');
+  const handleProceedToPayment = async () => {
+    const created = bookingSuccess || await handleConfirmBooking(false);
+    if (!created) return;
     setCurrentStep(5);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleConfirmBooking = async () => {
+  const handleConfirmBooking = async (showSuccess = true) => {
     if (booking) return;
     setError('');
     if (!selectedSlot) {
@@ -247,6 +252,7 @@ export default function SlotBooking() {
       return;
     }
     setBooking(true);
+    bookingInProgressRef.current = true;
     try {
       const response = await bookSlot({
         slotId: selectedSlot.id,
@@ -255,7 +261,11 @@ export default function SlotBooking() {
         vehicleNumber: vehicleNumber.trim().toUpperCase(),
         vehicleType,
       });
-      setBookingSuccess(response.data);
+      paymentBookingRef.current = response.data;
+      setPaymentBooking(response.data);
+      setNotice('');
+      if (showSuccess !== false) setBookingSuccess(response.data);
+      return response.data;
     } catch (err) {
       setError(err.response?.data?.message || 'Booking failed. Slot may already be taken.');
       try {
@@ -264,7 +274,9 @@ export default function SlotBooking() {
         setError(refreshErr.response?.data?.message || 'Booking failed and slots could not be refreshed.');
       }
       setSelectedSlot(null);
+      return null;
     } finally {
+      bookingInProgressRef.current = false;
       setBooking(false);
     }
   };
@@ -425,7 +437,7 @@ export default function SlotBooking() {
             slotNumber={selectedSlot?.slotNumber}
             amount={totalAmount}
             onDownload={downloadReceipt}
-            onBookings={() => navigate('/user/bookings', { replace: true, state: { bookingConfirmed: true, booking: bookingSuccess } })}
+            onBookings={() => navigate('/user/payment-placeholder', { state: { bookingDraft: bookingSuccess } })}
             onDashboard={() => navigate('/user/dashboard', { replace: true })}
           />
         </div>
@@ -566,6 +578,7 @@ export default function SlotBooking() {
               </aside>}
               {currentStep === 5 && <PaymentPlaceholderPage
                 bookingDraft={{
+                  id: paymentBooking?.id,
                   lotId: lot?.id,
                   lotName: lot?.name,
                   slotId: selectedSlot?.id,
@@ -592,7 +605,7 @@ export default function SlotBooking() {
           slotNumber={selectedSlot?.slotNumber}
           amount={totalAmount}
           onDownload={downloadReceipt}
-          onBookings={() => navigate('/user/bookings', { replace: true, state: { bookingConfirmed: true, booking: bookingSuccess } })}
+          onBookings={() => navigate('/user/payment-placeholder', { state: { bookingDraft: bookingSuccess } })}
           onDashboard={() => navigate('/user/dashboard', { replace: true })}
         />
       </div>
