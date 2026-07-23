@@ -19,6 +19,7 @@ import AdminVehicles from './pages/AdminVehicles';
 import AdminPayments from './pages/AdminPayments';
 import AdminReports from './pages/AdminReports';
 import AdminProfile from './pages/AdminProfile';
+import AdminSupport from './pages/AdminSupport';
 import UserHome from './pages/UserHome';
 import UserLayout from './components/UserLayout';
 import UserDashboard from './pages/UserDashboard';
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="payments" element={<AdminPayments />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="profile" element={<AdminProfile />} />
+            <Route path="support" element={<AdminSupport />} />
           </Route>
         </Routes>
       </BrowserRouter>

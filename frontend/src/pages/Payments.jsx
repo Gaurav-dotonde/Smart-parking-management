@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { getMyBookings } from '../services/bookingService';
+import { createSupportTicket } from '../services/supportService';
 
 function StatCard({ tone, label, value, subtext, icon }) {
   return (
@@ -51,6 +52,7 @@ function statusTone(status) {
 }
 
 export default function Payments() {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,6 +61,22 @@ export default function Payments() {
   const [locationFilter, setLocationFilter] = useState('All Locations');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [activeTab, setActiveTab] = useState('history');
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportForm, setSupportForm] = useState({ category: 'PAYMENT', subject: '', message: '' });
+  const [supportState, setSupportState] = useState({ saving: false, message: '', error: '' });
+
+  const submitSupport = async (event) => {
+    event.preventDefault();
+    setSupportState({ saving: true, message: '', error: '' });
+    try {
+      await createSupportTicket(supportForm);
+      setSupportState({ saving: false, message: 'Support request submitted. Admin will review it shortly.', error: '' });
+      setSupportForm({ category: 'PAYMENT', subject: '', message: '' });
+    } catch (err) {
+      setSupportState({ saving: false, message: '', error: err.response?.data?.message || `Could not submit request${err.response?.status ? ` (error ${err.response.status})` : ''}. Please try again.` });
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -104,13 +122,17 @@ export default function Payments() {
           [booking.id, booking.lotName, booking.slotNumber, booking.status]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query));
-        const matchesStatus = statusFilter === 'All Status' || booking.status === statusFilter;
+        const paymentStatus = booking.paymentStatus || (booking.status === 'CANCELLED' ? 'REFUND' : 'PAID');
+        const matchesStatus = statusFilter === 'All Status' || paymentStatus === statusFilter;
+        const matchesTab = activeTab === 'history' ||
+          (activeTab === 'pending' && paymentStatus === 'PENDING') ||
+          (activeTab === 'refunds' && ['REFUND', 'REFUNDED'].includes(paymentStatus));
         const matchesLocation = locationFilter === 'All Locations' || booking.lotName === locationFilter;
         const matchesFrom = !from || bookingDate >= from;
         const matchesTo = !to || bookingDate <= to;
-        return matchesQuery && matchesStatus && matchesLocation && matchesFrom && matchesTo;
+        return matchesQuery && matchesStatus && matchesTab && matchesLocation && matchesFrom && matchesTo;
       });
-  }, [bookings, searchText, statusFilter, locationFilter, fromDate, toDate]);
+  }, [bookings, searchText, statusFilter, locationFilter, fromDate, toDate, activeTab]);
 
   const stats = useMemo(() => {
     const totalSpent = bookings.reduce((sum, booking) => sum + Number(booking.amount || 0), 0);
@@ -133,8 +155,8 @@ export default function Payments() {
       <section className="user-page-card payments-hero">
         <div>
           <p className="user-page-eyebrow">Payments</p>
-          <h2>Review your payment activity</h2>
-          <p>Payment totals are derived from your booking records until a dedicated payment module is connected.</p>
+          <h2>Payments &amp; transactions</h2>
+          <p>Track every parking payment, check its status, and open the linked booking from one place.</p>
         </div>
       </section>
 
@@ -159,61 +181,22 @@ export default function Payments() {
         </NavLink>
       </section>
 
-      <section className="user-page-card payments-tabs-card">
-        <div className="payments-tabs">
-          <button type="button" className="payments-tab active">Payment History</button>
-          <button type="button" className="payments-tab">Pending</button>
-          <button type="button" className="payments-tab">Refunds</button>
-        </div>
-
-        <div className="payments-filter-grid user-page-toolbar">
-          <div className="form-group">
-            <label>From Date</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>To Date</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option>All Status</option>
-              <option>ACTIVE</option>
-              <option>COMPLETED</option>
-              <option>CANCELLED</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Location</label>
-            <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
-              <option>All Locations</option>
-              {locations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group payments-search-group">
-            <label>Search</label>
-            <input
-              type="text"
-              placeholder="Search by booking ID"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-          <button type="button" className="btn btn-secondary payments-filter-btn" onClick={resetFilters}>
-            Reset
-          </button>
-        </div>
-      </section>
-
       <section className="payments-main-grid">
         <div className="user-page-card payments-table-card">
           <div className="payments-list-head">
-            <h3>Payment History</h3>
+            <div><span className="booking-details-kicker">Transaction records</span><h3>{activeTab === 'history' ? 'Payment History' : activeTab === 'pending' ? 'Pending Payments' : 'Refund History'}</h3></div>
+            <span className="payments-result-count">{filteredPayments.length} results</span>
+          </div>
+          <div className="payments-record-tabs" role="tablist" aria-label="Transaction type">
+            <button type="button" role="tab" aria-selected={activeTab === 'history'} className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>
+              All Transactions <span>{bookings.length}</span>
+            </button>
+            <button type="button" role="tab" aria-selected={activeTab === 'pending'} className={activeTab === 'pending' ? 'active' : ''} onClick={() => setActiveTab('pending')}>
+              Pending <span>{bookings.filter((item) => item.paymentStatus === 'PENDING').length}</span>
+            </button>
+            <button type="button" role="tab" aria-selected={activeTab === 'refunds'} className={activeTab === 'refunds' ? 'active' : ''} onClick={() => setActiveTab('refunds')}>
+              Refunds <span>{bookings.filter((item) => item.status === 'CANCELLED' || ['REFUND', 'REFUNDED'].includes(item.paymentStatus)).length}</span>
+            </button>
           </div>
 
           {error && <p className="error-text">{error}</p>}
@@ -230,8 +213,7 @@ export default function Payments() {
               <table className="dashboard-table payments-table">
                 <thead>
                   <tr>
-                    <th>Payment Ref</th>
-                    <th>Booking ID</th>
+                    <th>Transaction</th>
                     <th>Location</th>
                     <th>Date &amp; Time</th>
                     <th>Amount</th>
@@ -244,11 +226,7 @@ export default function Payments() {
                     <tr key={booking.id}>
                       <td>
                         <strong>PAY-{booking.id}</strong>
-                        <div className="payments-subline">Linked booking payment</div>
-                      </td>
-                      <td>
-                        <strong>#{booking.id}</strong>
-                        <div className="payments-subline">{booking.slotNumber || 'Parking slot'}</div>
+                        <div className="payments-subline">Booking #{booking.id} · {booking.slotNumber || 'Parking slot'}</div>
                       </td>
                       <td>
                         <div className="payments-location">
@@ -268,12 +246,12 @@ export default function Payments() {
                         <div className="payments-subline">From booking record</div>
                       </td>
                       <td>
-                        <Badge tone={statusTone(booking.status)}>{booking.status || 'UNKNOWN'}</Badge>
+                        <Badge tone={statusTone(booking.paymentStatus || (booking.status === 'CANCELLED' ? 'CANCELLED' : 'ACTIVE'))}>{booking.paymentStatus || (booking.status === 'CANCELLED' ? 'REFUND' : 'PAID')}</Badge>
                       </td>
                       <td>
-                        <button type="button" className="btn btn-secondary payments-view-btn">
-                          View Booking
-                        </button>
+                        {booking.paymentStatus !== 'PAID' && booking.status !== 'CANCELLED'
+                          ? <button type="button" className="btn payments-view-btn" onClick={() => navigate('/user/payment-placeholder', { state: { bookingDraft: booking } })}>Pay</button>
+                          : <button type="button" className="btn btn-secondary payments-view-btn" onClick={() => navigate(`/bookings/${booking.id}`)}>View</button>}
                       </td>
                     </tr>
                   ))}
@@ -291,27 +269,36 @@ export default function Payments() {
 
         <aside className="payments-sidebar">
           <div className="user-page-card payments-methods-card">
-            <h3>Payment Summary</h3>
-            <div className="payments-method-item">Booking-linked records <span>{bookings.length}</span></div>
-            <div className="payments-method-item">Active bookings <span>{stats.activeBookings}</span></div>
-            <div className="payments-method-item">Cancelled bookings <span>{stats.cancelledBookings}</span></div>
-            <div className="payments-method-item">Standalone payment methods <span>Not connected yet</span></div>
-          </div>
-
-          <div className="user-page-card payments-secure-card">
-            <strong>Secure Payment Handling</strong>
-            <p>Payment information will stay protected once the payment module is connected.</p>
+            <h3>Quick Summary</h3>
+            <div className="payments-method-item">All transactions <span>{bookings.length}</span></div>
+            <div className="payments-method-item">Successful <span>{bookings.filter((item) => item.status !== 'CANCELLED').length}</span></div>
+            <div className="payments-method-item">Refund records <span>{stats.cancelledBookings}</span></div>
+            <div className="payments-method-item is-total">Total paid <span>{formatCurrency(stats.totalSpent)}</span></div>
           </div>
 
           <div className="user-page-card payments-help-card">
             <strong>Need Help?</strong>
             <p>If you face any payment issue, our support team can assist you.</p>
-            <button type="button" className="btn payments-support-btn">
+            <button type="button" className="btn payments-support-btn" onClick={() => setSupportOpen(true)}>
               Contact Support
             </button>
           </div>
         </aside>
       </section>
+      {supportOpen && (
+        <div className="support-modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setSupportOpen(false); }}>
+          <form className="support-modal" onSubmit={submitSupport}>
+            <div className="support-modal-head"><div><span>Help center</span><h3>Contact Support</h3></div><button type="button" onClick={() => setSupportOpen(false)} aria-label="Close">×</button></div>
+            <p>Describe your payment issue. The admin team will receive this request in the admin console.</p>
+            <label>Issue type<select value={supportForm.category} onChange={(e) => setSupportForm({ ...supportForm, category: e.target.value })}><option>PAYMENT</option><option>REFUND</option><option>BOOKING</option><option>OTHER</option></select></label>
+            <label>Subject<input required maxLength="80" value={supportForm.subject} onChange={(e) => setSupportForm({ ...supportForm, subject: e.target.value })} placeholder="e.g. Payment deducted but booking not confirmed" /></label>
+            <label>Describe the issue<textarea required minLength="10" maxLength="1500" rows="5" value={supportForm.message} onChange={(e) => setSupportForm({ ...supportForm, message: e.target.value })} placeholder="Include payment reference, booking ID, and what went wrong..." /></label>
+            {supportState.error && <p className="error-text">{supportState.error}</p>}
+            {supportState.message && <p className="support-success">{supportState.message}</p>}
+            <div className="support-modal-actions"><button type="button" className="btn btn-secondary" onClick={() => setSupportOpen(false)}>Cancel</button><button className="btn" disabled={supportState.saving}>{supportState.saving ? 'Submitting...' : 'Submit request'}</button></div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

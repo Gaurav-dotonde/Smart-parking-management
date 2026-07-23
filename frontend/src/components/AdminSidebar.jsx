@@ -10,6 +10,7 @@ const items = [
   { label: 'Users', to: '/admin/users', icon: 'users' },
   { label: 'Vehicles', to: '/admin/vehicles', icon: 'vehicles' },
   { label: 'Payments', to: '/admin/payments', icon: 'payments' },
+  { label: 'Support', to: '/admin/support', icon: 'support' },
   { label: 'Reports', to: '/admin/reports', icon: 'reports' },
   { label: 'Admin Profile', to: '/admin/profile', icon: 'profile' },
 ];
@@ -23,6 +24,7 @@ function SidebarIcon({ name }) {
     users: <><circle cx="9" cy="8" r="3.5"/><path d="M3.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M15.5 5.2a3 3 0 0 1 0 5.6M16 14.5c2 .2 3.6 1.6 4.3 3.5"/></>,
     vehicles: <><path d="M4 15V10l2-4h12l2 4v5"/><path d="M3 15h18v3H3zM7 18v2M17 18v2"/><circle cx="7" cy="12" r="1"/><circle cx="17" cy="12" r="1"/></>,
     payments: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 15h4"/></>,
+    support: <><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.5a2.5 2.5 0 0 1-1-2Z"/><path d="M8 8h8M8 12h5"/></>,
     reports: <><path d="M5 20V11M12 20V4M19 20v-6M3 20.5h18"/></>,
     profile: <><circle cx="12" cy="8" r="4"/><path d="M5 20c.9-3.2 3.5-5 7-5s6.1 1.8 7 5"/></>,
   };

@@ -18,6 +18,15 @@ const summaryCards = [
   { title: 'Blocked Users', key: 'blocked', tone: 'red' },
 ];
 
+function UserStatIcon({ type }) {
+  const icons = {
+    total: <><circle cx="9" cy="8" r="3.5" /><path d="M3.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M15.5 5.3a3 3 0 0 1 0 5.4M16 14.5c2 .2 3.7 1.5 4.4 3.5" /></>,
+    active: <><circle cx="10" cy="8" r="4" /><path d="M3.5 20c.9-3.4 3.3-5 6.5-5 1.2 0 2.3.2 3.2.7m1.3 1.3 2 2 4-5" /></>,
+    blocked: <><circle cx="10" cy="7.5" r="3.5" /><path d="M3.5 18.5c.8-3 3-4.5 6.5-4.5 1.1 0 2.1.2 3 .5M15 15l5 5m0-5-5 5" /></>,
+  };
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{icons[type]}</svg>;
+}
+
 const formatDate = (value) => {
   if (!value) return 'N/A';
   return new Date(value).toLocaleDateString();
@@ -174,13 +183,17 @@ export default function AdminUsers() {
 
   return (
     <div className="container admin-page">
-      <h2 className="page-title">Users</h2>
-      <p className="subtitle">Manage registered users, account status, and recent activity.</p>
+      <div className="admin-compact-page-head admin-module-head">
+        <div><span className="admin-module-eyebrow">Account directory</span><h2>User Management</h2><p>Manage registered users, account status, and booking activity.</p></div>
+        <button type="button" className="btn" onClick={openCreateForm}>+ Create Account</button>
+      </div>
 
       <div className="dashboard-stats-grid users-stats-grid">
         {summaryCards.map((card) => (
           <div key={card.key} className="card dashboard-stat-card">
-            <div className={`dashboard-stat-icon ${card.tone}`}></div>
+            <div className={`dashboard-stat-icon admin-user-stat-icon ${card.tone}`}>
+              <UserStatIcon type={card.key} />
+            </div>
             <div>
               <span className="dashboard-stat-title">{card.title}</span>
               <strong className="dashboard-stat-value">{summary[card.key]}</strong>

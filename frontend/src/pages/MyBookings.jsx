@@ -186,6 +186,11 @@ export default function MyBookings() {
                         <button type="button" className="btn btn-secondary my-bookings-view-btn" onClick={() => navigate(`/bookings/${booking.id}`)}>
                           View
                         </button>
+                        {booking.paymentStatus !== 'PAID' && booking.status !== 'CANCELLED' && (
+                          <button type="button" className="btn my-bookings-pay-btn" onClick={() => navigate('/user/payment-placeholder', { state: { bookingDraft: booking } })}>
+                            Pay Now
+                          </button>
+                        )}
                         {booking.status === 'ACTIVE' && (
                           <button type="button" className="btn btn-danger my-bookings-cancel-btn" onClick={() => handleCancel(booking.id)}>
                             Cancel

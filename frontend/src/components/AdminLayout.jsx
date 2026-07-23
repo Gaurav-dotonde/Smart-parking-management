@@ -12,6 +12,7 @@ const routeTitles = {
   '/admin/users': ['Users', 'Manage registered users and account access.'],
   '/admin/vehicles': ['Vehicles', 'Manage registered vehicles and their owners.'],
   '/admin/payments': ['Payments', 'Review payment records, verification and refunds.'],
+  '/admin/support': ['Support Requests', 'Review and resolve user help requests.'],
   '/admin/reports': ['Reports', 'Review operational and booking insights.'],
   '/admin/profile': ['Admin Profile', 'Manage your administrator account and security.'],
 };

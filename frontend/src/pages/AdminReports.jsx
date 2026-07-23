@@ -199,11 +199,11 @@ export default function AdminReports() {
       {!loading && !error && summary && (
         <>
           <div className="dashboard-stats-grid bookings-stats-grid">
-            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon blue"></div><div><span className="dashboard-stat-title">Total Bookings</span><strong className="dashboard-stat-value">{summary.totalBookings}</strong></div></div>
-            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon purple"></div><div><span className="dashboard-stat-title">Completed Bookings</span><strong className="dashboard-stat-value">{summary.completedBookings}</strong></div></div>
-            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon red"></div><div><span className="dashboard-stat-title">Cancelled Bookings</span><strong className="dashboard-stat-value">{summary.cancelledBookings}</strong></div></div>
-            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon green"></div><div><span className="dashboard-stat-title">Total Revenue</span><strong className="dashboard-stat-value reports-money">{formatCurrency(summary.totalRevenue)}</strong></div></div>
-            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon amber"></div><div><span className="dashboard-stat-title">Average Booking Amount</span><strong className="dashboard-stat-value reports-money">{formatCurrency(summary.averageBookingAmount)}</strong></div></div>
+            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon admin-report-stat-icon blue"><ReportStatIcon type="total" /></div><div><span className="dashboard-stat-title">Total Bookings</span><strong className="dashboard-stat-value">{summary.totalBookings}</strong></div></div>
+            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon admin-report-stat-icon purple"><ReportStatIcon type="completed" /></div><div><span className="dashboard-stat-title">Completed Bookings</span><strong className="dashboard-stat-value">{summary.completedBookings}</strong></div></div>
+            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon admin-report-stat-icon red"><ReportStatIcon type="cancelled" /></div><div><span className="dashboard-stat-title">Cancelled Bookings</span><strong className="dashboard-stat-value">{summary.cancelledBookings}</strong></div></div>
+            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon admin-report-stat-icon green"><ReportStatIcon type="revenue" /></div><div><span className="dashboard-stat-title">Total Revenue</span><strong className="dashboard-stat-value reports-money">{formatCurrency(summary.totalRevenue)}</strong></div></div>
+            <div className="card dashboard-stat-card"><div className="dashboard-stat-icon admin-report-stat-icon amber"><ReportStatIcon type="average" /></div><div><span className="dashboard-stat-title">Average Booking Amount</span><strong className="dashboard-stat-value reports-money">{formatCurrency(summary.averageBookingAmount)}</strong></div></div>
           </div>
 
           <div className="dashboard-sections-grid reports-sections-grid">
@@ -334,4 +334,14 @@ export default function AdminReports() {
       )}
     </div>
   );
+}
+function ReportStatIcon({ type }) {
+  const icons = {
+    total: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h5M8 16h7" /></>,
+    completed: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16.5 8" /></>,
+    cancelled: <><circle cx="12" cy="12" r="9" /><path d="m9 9 6 6m0-6-6 6" /></>,
+    revenue: <><circle cx="12" cy="12" r="9" /><path d="M15.5 7.5h-7M13 7.5c0 5-4 5-4 5h4.5M9 12.5l6 5" /></>,
+    average: <><path d="M4 19V9m5 10V5m5 14v-7m5 7V3" /><path d="M3 21h18" /></>,
+  };
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{icons[type]}</svg>;
 }

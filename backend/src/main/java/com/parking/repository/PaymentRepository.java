@@ -5,4 +5,5 @@ import java.util.*;
 public interface PaymentRepository extends JpaRepository<Payment,Long>{
  List<Payment> findAllByOrderByCreatedAtDesc();
  boolean existsByTransactionReference(String reference);
+ Optional<Payment> findFirstByBookingIdOrderByCreatedAtDesc(Long bookingId);
 }

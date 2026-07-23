@@ -7,6 +7,8 @@ import com.parking.model.*;
 import com.parking.repository.BookingRepository;
 import com.parking.repository.ParkingSlotRepository;
 import com.parking.repository.ParkingLotRepository;
+import com.parking.repository.VehicleRepository;
+import com.parking.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +19,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +29,8 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final ParkingSlotRepository parkingSlotRepository;
     private final ParkingLotRepository parkingLotRepository;
+    private final VehicleRepository vehicleRepository;
+    private final PaymentRepository paymentRepository;
 
     /**
      * Concurrency-safe slot booking.
@@ -77,10 +83,11 @@ public class BookingService {
                 .vehicleNumber(safeRequest.getVehicleNumber())
                 .status(BookingStatus.ACTIVE)
                 .amount(amount)
-                .paymentStatus(PaymentStatus.PAID)
+                .paymentStatus(PaymentStatus.UNPAID)
                 .build();
 
         booking = bookingRepository.save(Objects.requireNonNull(booking, "booking must not be null"));
+        synchronizeUserRecords(booking, safeRequest.getVehicleType());
 
         return toResponse(booking);
     }
@@ -220,6 +227,22 @@ public class BookingService {
 
     private int count(ParkingLot lot, SlotStatus status) {
         return (int) parkingSlotRepository.countByParkingLotIdAndArchivedFalseAndStatus(lot.getId(), status);
+    }
+
+    private void synchronizeUserRecords(Booking booking, String vehicleType) {
+        String registration = booking.getVehicleNumber().trim().toUpperCase(Locale.ROOT);
+        String normalized = registration.replaceAll("[^A-Z0-9]", "");
+        if (vehicleRepository.findByRegistrationNormalized(normalized).isEmpty()) {
+            vehicleRepository.save(Vehicle.builder().owner(booking.getUser()).registrationNumber(registration)
+                .registrationNormalized(normalized).vehicleType(vehicleType.trim().toUpperCase(Locale.ROOT))
+                .active(true).archived(false).build());
+        }
+        if (paymentRepository.findFirstByBookingIdOrderByCreatedAtDesc(booking.getId()).isEmpty()) {
+            paymentRepository.save(Payment.builder().booking(booking)
+                .amount(BigDecimal.valueOf(booking.getAmount())).currency("INR").paymentMethod("ONLINE")
+                .transactionReference("BOOKING-" + booking.getId()).status(PaymentStatus.PENDING)
+                .paymentDate(null).build());
+        }
     }
 
     private BookingResponse toResponse(Booking booking) {
