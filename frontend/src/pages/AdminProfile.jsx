@@ -516,7 +516,38 @@ export default function AdminProfile() {
           </div>
         </div>
       )}
-      {confirmPhotoDelete && <div className="modal-backdrop"><div className="modal-card confirm-card"><h3>Remove Profile Photo</h3><p>Remove the current administrator profile photo?</p><div className="manage-slots-actions"><button className="btn btn-secondary" onClick={() => setConfirmPhotoDelete(false)} disabled={submittingPhoto}>Cancel</button><button className="btn btn-danger" onClick={handlePhotoDelete} disabled={submittingPhoto}>{submittingPhoto ? 'Removing...' : 'Remove Photo'}</button></div></div></div>}
+      {confirmPhotoDelete && (
+        <div className="admin-profile-modal-backdrop" onClick={() => setConfirmPhotoDelete(false)} role="presentation">
+          <div
+            className="admin-profile-modal admin-profile-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-photo-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button type="button" className="admin-profile-modal-close" onClick={() => setConfirmPhotoDelete(false)} aria-label="Close remove photo modal">
+              ×
+            </button>
+            <div className="admin-profile-modal-head">
+              <div className="admin-profile-action-icon-wrap">
+                <EditProfileIcon />
+              </div>
+              <div>
+                <h3 id="remove-photo-modal-title">Remove Profile Photo</h3>
+                <p>Remove the current administrator profile photo?</p>
+              </div>
+            </div>
+            <div className="admin-profile-modal-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setConfirmPhotoDelete(false)} disabled={submittingPhoto}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-danger" onClick={handlePhotoDelete} disabled={submittingPhoto}>
+                {submittingPhoto ? 'Removing...' : 'Remove Photo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

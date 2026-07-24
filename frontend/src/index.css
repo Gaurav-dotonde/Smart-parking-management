@@ -2468,6 +2468,10 @@ body {
   animation: adminProfileModalIn 180ms ease-out;
 }
 
+.admin-profile-confirm-modal {
+  width: min(100%, 520px);
+}
+
 .admin-profile-modal-head {
   display: flex;
   align-items: flex-start;
