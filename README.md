@@ -81,7 +81,14 @@ parking-system/
 cd backend
 ```
 
-Edit `src/main/resources/application.properties` if your MySQL username/password differ from the defaults (`root` / `root`). The database `parking_db` is created automatically on first run.
+`src/main/resources/application.properties` now reads MySQL settings from environment variables when they are present:
+
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+- `SPRING_DATASOURCE_DRIVER_CLASS_NAME`
+
+If those are not set, the app falls back to `jdbc:mysql://localhost:3306/parking_db`, username `root`, and password `root`. The database `parking_db` is created automatically on first run.
 
 ```bash
 mvn spring-boot:run
@@ -129,7 +136,7 @@ no SQL seed or manual role update is required.
 
 ## Deployment
 
-- **Backend:** Railway / Render (set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` as env vars, or edit `application.properties` before building)
+- **Backend:** Railway / Render (set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, and optionally `SPRING_DATASOURCE_DRIVER_CLASS_NAME` as env vars, or edit `application.properties` before building)
 - **Frontend:** Vercel / Netlify (set the API base URL to your deployed backend, or use Vite env vars)
 - **Database:** Railway MySQL / Clever Cloud / PlanetScale (free tiers available)
 
