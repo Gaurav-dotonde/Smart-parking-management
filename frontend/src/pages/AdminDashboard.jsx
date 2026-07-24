@@ -74,7 +74,9 @@ const normalizeDashboard = (value) => {
     ...source,
     totalParkingLocations: Number(source.totalParkingLocations ?? source.totalLocations ?? 0),
     totalParkingSlots: Number(source.totalParkingSlots ?? source.totalSlots ?? 0),
-    recentBookings: Array.isArray(source.recentBookings) ? source.recentBookings : [],
+    recentBookings: Array.isArray(source.recentBookings)
+      ? [...source.recentBookings].sort((a, b) => Number(a.id) - Number(b.id))
+      : [],
     recentUsers: Array.isArray(source.recentUsers) ? source.recentUsers : [],
     recentPayments: Array.isArray(source.recentPayments) ? source.recentPayments : [],
     locationOccupancy: Array.isArray(source.locationOccupancy) ? source.locationOccupancy : [],

@@ -47,6 +47,11 @@ export default function AdminLayout() {
     setNotificationsOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    document.body.classList.toggle('navigation-drawer-open', sidebarOpen);
+    return () => document.body.classList.remove('navigation-drawer-open');
+  }, [sidebarOpen]);
+
   const loadNotifications = async () => {
     setNotificationsLoading(true);
     const [bookingResult, paymentResult, supportResult] = await Promise.allSettled([

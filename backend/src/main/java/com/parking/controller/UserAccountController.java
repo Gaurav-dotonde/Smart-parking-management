@@ -31,10 +31,11 @@ public class UserAccountController {
     @GetMapping("/me/vehicles")
     @Transactional(readOnly = true)
     public List<AdminVehicleResponse> vehicles(@AuthenticationPrincipal User user) {
-        return vehicleRepository.findByOwnerIdAndArchivedFalseOrderByCreatedAtDesc(user.getId()).stream()
+        return vehicleRepository.findByOwnerIdAndArchivedFalseAndActiveTrueOrderByCreatedAtDesc(user.getId()).stream()
             .map(v -> new AdminVehicleResponse(v.getId(), v.getOwner().getId(), v.getOwner().getName(),
                 v.getOwner().getEmail(), v.getRegistrationNumber(), v.getVehicleType(), v.getBrand(),
-                v.getModel(), v.getColor(), v.isActive(), v.getCreatedAt(), v.getUpdatedAt()))
+                v.getModel(), v.getColor(), v.isActive(), v.isArchived(), v.getArchivedAt(),
+                v.getCreatedAt(), v.getUpdatedAt()))
             .toList();
     }
 

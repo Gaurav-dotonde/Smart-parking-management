@@ -80,6 +80,27 @@ class BookingServiceLifecycleTest {
     }
 
     @Test
+    void userCanCheckInOwnBooking() {
+        when(bookings.findByIdForUpdate(4L)).thenReturn(Optional.of(booking));
+        when(slots.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        var response = service.transitionAsUser(user, 4L, "CHECK_IN");
+        assertEquals("OCCUPIED", response.getStatus());
+        assertEquals(BookingStatus.OCCUPIED, booking.getStatus());
+        assertEquals(SlotStatus.OCCUPIED, slot.getStatus());
+    }
+
+    @Test
+    void userCannotCheckInAnotherUsersBooking() {
+        User anotherUser = User.builder().id(99L).name("Another User").email("another@test.com").build();
+        when(bookings.findByIdForUpdate(4L)).thenReturn(Optional.of(booking));
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.transitionAsUser(anotherUser, 4L, "CHECK_IN"));
+        assertTrue(error.getMessage().contains("another user's booking"));
+        verify(slots, never()).findByIdForUpdate(anyLong());
+        verify(bookings, never()).save(any());
+    }
+
+    @Test
     void extensionSucceedsAndUpdatesAmountAndHistory() {
         when(bookings.findByIdForUpdate(4L)).thenReturn(Optional.of(booking));
         when(slots.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));

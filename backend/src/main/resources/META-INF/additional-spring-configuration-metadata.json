@@ -16,6 +16,30 @@
       "description": "Comma-separated frontend origins allowed by CORS."
     },
     {
+      "name": "parking.booking.early-checkin-minutes",
+      "type": "java.lang.Long",
+      "description": "Number of minutes before the booking start time when check-in becomes available.",
+      "defaultValue": 15
+    },
+    {
+      "name": "parking.booking.no-show-grace-minutes",
+      "type": "java.lang.Long",
+      "description": "Grace period in minutes after booking start before an unattended booking is treated as a no-show.",
+      "defaultValue": 15
+    },
+    {
+      "name": "parking.booking.extension-reminder-minutes",
+      "type": "java.lang.Long",
+      "description": "Number of minutes before booking end when the extension reminder becomes applicable.",
+      "defaultValue": 15
+    },
+    {
+      "name": "parking.booking.extension-grace-minutes",
+      "type": "java.lang.Long",
+      "description": "Grace period in minutes after booking end during which an extension may still be requested.",
+      "defaultValue": 15
+    },
+    {
       "name": "app.default-admin.name",
       "type": "java.lang.String",
       "description": "Display name used when initializing the default administrator."

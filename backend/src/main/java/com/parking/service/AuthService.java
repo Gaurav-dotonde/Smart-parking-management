@@ -25,7 +25,8 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         RegisterRequest safeRequest = Objects.requireNonNull(request, "request must not be null");
-        if (userRepository.existsByEmail(safeRequest.getEmail())) {
+        String normalizedEmail = safeRequest.getEmail().trim().toLowerCase();
+        if (userRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("An account with this email already exists.");
         }
         if (!safeRequest.getPassword().equals(safeRequest.getConfirmPassword())) {
@@ -33,9 +34,9 @@ public class AuthService {
         }
 
         User user = User.builder()
-                .name(safeRequest.getName())
-                .email(safeRequest.getEmail())
-                .phone(safeRequest.getPhone())
+                .name(safeRequest.getName().trim())
+                .email(normalizedEmail)
+                .phone(safeRequest.getPhone().trim())
                 .password(passwordEncoder.encode(safeRequest.getPassword()))
                 .role(Role.USER)
                 .accountStatus(AccountStatus.ACTIVE)

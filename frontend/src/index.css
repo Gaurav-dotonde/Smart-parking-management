@@ -479,6 +479,45 @@ body {
 .admin-slots-page .admin-floor-card { height: 132px; min-height: 132px; display: flex; flex-direction: column; justify-content: center; padding: 22px 20px; }
 .admin-slots-page .admin-floor-card > div { display: flex; flex: 0 0 auto; gap: 12px; }.admin-slots-page .slots-floor-icon { flex: 0 0 34px; width: 34px; height: 34px; }.admin-slots-page .admin-floor-card strong { font-size: 20px; font-weight: 600; line-height: 1.2; }.admin-slots-page .admin-floor-card p { margin: 13px 0 0; color: #64748b; font-size: 14px; line-height: 1.25; white-space: nowrap; }.admin-slots-page .admin-slot-filters { margin-bottom: 14px; }
 
+/* Keep all eight floor cards balanced without clipping their availability totals. */
+.admin-slots-page .admin-floor-card .admin-floor-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin-top: 14px;
+  white-space: normal;
+}
+.admin-slots-page .admin-floor-stats > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-slots-page .admin-floor-stats > span + span {
+  padding-left: 10px;
+  border-left: 1px solid #e3ebf5;
+}
+.admin-slots-page .admin-floor-stats b {
+  color: #315b89;
+  font-size: 14px;
+  line-height: 1;
+}
+.admin-slots-page .admin-floor-stats small {
+  overflow: hidden;
+  color: #718198;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+}
+.admin-slots-page .admin-floor-card.active .admin-floor-stats b,
+.admin-slots-page .admin-floor-card.active .admin-floor-stats small {
+  color: #fff;
+}
+.admin-slots-page .admin-floor-card.active .admin-floor-stats > span + span {
+  border-left-color: rgba(255, 255, 255, .3);
+}
+
 @media (max-width: 1250px) { .admin-slot-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } .admin-slot-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .admin-slot-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-slot-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .admin-floor-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -2632,6 +2671,160 @@ body {
 
 .details-subhead {
   margin-top: 18px;
+}
+
+/* Admin users: contained, readable details dialog. */
+.admin-bookings-table-card .dashboard-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.admin-page .admin-bookings-table {
+  width: 1615px;
+  min-width: 1615px;
+  table-layout: fixed;
+}
+.admin-bookings-table th,
+.admin-bookings-table td {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.admin-bookings-table th:nth-child(1) { width: 90px; }
+.admin-bookings-table th:nth-child(2) { width: 100px; }
+.admin-bookings-table th:nth-child(3) { width: 170px; }
+.admin-bookings-table th:nth-child(4) { width: 150px; }
+.admin-bookings-table th:nth-child(5) { width: 100px; }
+.admin-bookings-table th:nth-child(6) { width: 70px; }
+.admin-bookings-table th:nth-child(7) { width: 130px; }
+.admin-bookings-table th:nth-child(8) { width: 115px; }
+.admin-bookings-table th:nth-child(9) { width: 115px; }
+.admin-bookings-table th:nth-child(10) { width: 130px; }
+.admin-bookings-table th:nth-child(11) { width: 110px; }
+.admin-bookings-table th:nth-child(12) { width: 85px; }
+.admin-bookings-table th:nth-child(13) { width: 250px; }
+.admin-bookings-table td:nth-child(4) {
+  white-space: normal;
+  overflow-wrap: normal;
+  line-height: 1.35;
+}
+.admin-bookings-table td:last-child {
+  overflow: visible;
+  text-overflow: clip;
+}
+.admin-bookings-table td:last-child .manage-slots-actions {
+  justify-content: flex-start;
+  min-width: max-content;
+}
+
+.admin-users-table-card .dashboard-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.admin-page .admin-users-table {
+  width: 100%;
+  min-width: 1100px;
+  table-layout: fixed;
+}
+.admin-users-table th,
+.admin-users-table td {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.admin-users-table th:nth-child(1) { width: 5%; }
+.admin-users-table th:nth-child(2) { width: 8%; }
+.admin-users-table th:nth-child(3) { width: 15%; }
+.admin-users-table th:nth-child(4) { width: 10%; }
+.admin-users-table th:nth-child(5) { width: 6%; }
+.admin-users-table th:nth-child(6) { width: 9%; }
+.admin-users-table th:nth-child(7) { width: 11%; }
+.admin-users-table th:nth-child(8) { width: 10%; }
+.admin-users-table th:nth-child(9) { width: 26%; }
+.admin-users-table td:last-child {
+  overflow: visible;
+  text-overflow: clip;
+}
+.admin-users-table td:last-child .manage-slots-actions {
+  justify-content: flex-start;
+  min-width: max-content;
+}
+
+.user-details-backdrop { z-index: 1600; }
+.user-details-modal {
+  width: min(900px, calc(100vw - 32px));
+  max-width: 900px;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: auto;
+}
+.user-details-modal > .dashboard-section-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  align-items: center;
+  margin: 0;
+  padding: 20px 72px 18px 22px;
+  border-bottom: 1px solid #e4edf7;
+  background: #fff;
+}
+.user-details-modal > .dashboard-section-head h3 {
+  margin: 0;
+  color: #12233d;
+  font-size: 1.15rem;
+}
+.user-details-modal > .dashboard-section-head p {
+  margin: 4px 0 0;
+  color: #708198;
+  font-size: .8rem;
+}
+.user-details-modal .modal-close { top: 17px; right: 20px; }
+.user-details-modal > .booking-details-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 20px 22px;
+}
+.user-details-modal > .booking-details-grid > div {
+  min-width: 0;
+  padding: 13px 14px;
+  overflow-wrap: anywhere;
+  border: 1px solid #e2ebf5;
+  border-radius: 10px;
+  color: #52657d;
+  background: #f8fbff;
+  font-size: .82rem;
+}
+.user-details-modal > .booking-details-grid strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #18283f;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.user-details-modal > .details-subhead {
+  position: static;
+  padding: 0 22px 10px;
+  border: 0;
+}
+.user-details-modal > .dashboard-table-wrap {
+  width: auto;
+  margin: 0 22px 22px;
+  border: 1px solid #dce8f5;
+  border-radius: 11px;
+}
+.user-details-modal .dashboard-table { min-width: 680px; }
+
+@media (max-width: 760px) {
+  .user-details-modal > .booking-details-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+  .user-details-modal > .dashboard-section-head { padding: 17px 58px 15px 16px; }
+  .user-details-modal .modal-close { top: 14px; right: 14px; }
+  .user-details-modal > .details-subhead { padding: 0 16px 9px; }
+  .user-details-modal > .dashboard-table-wrap { margin: 0 16px 16px; }
 }
 
 .users-stats-grid {
@@ -5970,4 +6163,1545 @@ select.available-slots-field {
 }
 @media(max-width:560px){
   .payments-page .payments-filter-grid{grid-template-columns:1fr}
+}
+
+/* ==========================================================================
+   Responsive foundation
+   Shared safeguards for admin, user, authentication and legacy routed pages.
+   ========================================================================== */
+html {
+  max-width: 100%;
+  overflow-x: hidden;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-width: 320px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body.navigation-drawer-open { overflow: hidden; }
+
+img,
+svg,
+canvas,
+video,
+iframe {
+  max-width: 100%;
+}
+
+img,
+video { height: auto; }
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+  font-family: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea { touch-action: manipulation; }
+
+p,
+li,
+td,
+th,
+label,
+small,
+strong,
+.subtitle,
+.error-text,
+.empty-state {
+  overflow-wrap: anywhere;
+}
+
+.admin-shell,
+.admin-main,
+.admin-content,
+.admin-module-page,
+.admin-page,
+.user-shell,
+.user-content,
+.user-page-wrap,
+.user-page-section,
+.auth-wrapper,
+.booking-checkout-page {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.admin-head-actions,
+.admin-row-actions,
+.manage-slots-actions,
+.reports-filter-actions,
+.toolbar-actions,
+.modal-actions,
+.booking-details-actions,
+.my-bookings-actions,
+.profile-modal-actions,
+.payment-placeholder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .625rem;
+}
+
+.admin-responsive-table,
+.dashboard-table-wrap,
+.user-responsive-table {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-modal-backdrop,
+.modal-backdrop,
+.admin-profile-modal-backdrop,
+.profile-modal-backdrop,
+.support-modal-backdrop,
+.saas-booking-success-backdrop {
+  padding: clamp(.75rem, 2vw, 1.5rem);
+}
+
+.admin-modal,
+.modal-card,
+.admin-profile-modal,
+.profile-modal,
+.support-modal,
+.saas-booking-success {
+  max-width: 100%;
+  max-height: calc(100dvh - 1.5rem);
+}
+
+.admin-modal-body,
+.modal-card,
+.admin-profile-modal,
+.profile-modal,
+.support-modal,
+.saas-booking-success {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.user-sidebar-close {
+  display: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-left: auto;
+  flex: 0 0 2.75rem;
+  border: 0;
+  border-radius: .625rem;
+  color: #dbeafe;
+  background: rgba(255, 255, 255, .08);
+  font-size: 1.65rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-dashboard-stat:hover,
+  .dashboard-stat-card:hover,
+  .find-parking-result-card:hover,
+  .available-slot-card:hover,
+  .user-page-card.is-clickable:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* Laptop: three summary cards where space allows. */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .admin-dashboard-stat-grid,
+  .dashboard-stats-grid,
+  .admin-module-stats,
+  .users-stats-grid,
+  .bookings-stats-grid,
+  .reports-stats-grid,
+  .user-summary-grid,
+  .my-bookings-stats-grid,
+  .booking-history-stats-grid,
+  .payments-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-content { padding-inline: 1.5rem; }
+}
+
+/* Tablet and smaller: sidebars become non-layout drawers. */
+@media (max-width: 991px) {
+  .admin-sidebar,
+  .user-sidebar {
+    width: min(19rem, 86vw);
+    max-width: calc(100vw - 2rem);
+  }
+
+  .user-sidebar-close { display: grid; place-items: center; }
+  .user-sidebar-brand { max-width: none; width: 100%; }
+
+  .admin-main,
+  .user-content {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .admin-dashboard-stat-grid,
+  .dashboard-stats-grid,
+  .admin-module-stats,
+  .users-stats-grid,
+  .bookings-stats-grid,
+  .reports-stats-grid,
+  .user-summary-grid,
+  .my-bookings-stats-grid,
+  .booking-history-stats-grid,
+  .payments-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-dashboard-grid.two,
+  .admin-dashboard-grid.three,
+  .admin-dashboard-grid.revenue-quick,
+  .reports-sections-grid,
+  .reports-status-layout,
+  .payments-main-grid,
+  .profile-content-grid,
+  .booking-details-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-toolbar,
+  .admin-module-head,
+  .manage-slots-head,
+  .dashboard-section-head,
+  .my-bookings-list-head,
+  .booking-history-list-head {
+    flex-wrap: wrap;
+  }
+
+  .admin-slot-filters,
+  .manage-slots-filters,
+  .bookings-filters,
+  .users-filters,
+  .reports-filter-grid,
+  .payments-filter-grid,
+  .find-parking-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-slot-summary,
+  .admin-floor-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-page .dashboard-table,
+  .dashboard-table,
+  .admin-responsive-table table {
+    min-width: 48rem;
+  }
+}
+
+/* Mobile and large mobile. */
+@media (max-width: 767px) {
+  .container {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  .navbar {
+    padding: .75rem 1rem;
+    flex-flow: row wrap;
+  }
+
+  .navbar > div {
+    width: 100%;
+    display: flex;
+    gap: .5rem;
+    overflow-x: auto;
+  }
+
+  .navbar a,
+  .navbar button {
+    min-height: 2.75rem;
+    margin-left: 0;
+    white-space: nowrap;
+  }
+
+  .admin-topbar,
+  .user-topbar {
+    gap: .625rem;
+    padding: .625rem .875rem;
+  }
+
+  .admin-topbar-title-wrap,
+  .user-topbar-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .admin-topbar-title-wrap > div,
+  .user-topbar-left > div {
+    min-width: 0;
+  }
+
+  .admin-topbar h1,
+  .user-topbar-left h1 {
+    overflow: hidden;
+    font-size: clamp(1rem, 4.5vw, 1.2rem);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-topbar-actions { gap: .4rem; }
+  .admin-profile-copy,
+  .admin-profile-chevron,
+  .user-topbar-user-copy { display: none; }
+  .admin-profile-trigger,
+  .user-topbar-user { min-width: 0; padding: .25rem; }
+
+  .admin-notification-dropdown {
+    position: fixed;
+    top: 4.5rem;
+    right: .75rem;
+    left: .75rem;
+    width: auto;
+    max-height: calc(100dvh - 5.25rem);
+  }
+
+  .admin-notification-list { max-height: calc(100dvh - 12rem); }
+
+  .admin-profile-dropdown {
+    position: fixed;
+    top: 4.5rem;
+    right: .75rem;
+    width: min(13rem, calc(100vw - 1.5rem));
+  }
+
+  .admin-content {
+    padding: .125rem .875rem 1.5rem;
+  }
+
+  .user-content {
+    padding: .75rem;
+    gap: 1rem;
+  }
+
+  .user-page-wrap,
+  .user-page-section { gap: 1rem; }
+
+  .user-page-card,
+  .admin-dashboard-panel,
+  .admin-data-card,
+  .card {
+    max-width: 100%;
+  }
+
+  .admin-module-head,
+  .admin-profile-card,
+  .admin-profile-hero,
+  .user-page-shell-card,
+  .payments-table-card {
+    padding: 1rem;
+  }
+
+  .admin-module-head h2,
+  .page-title,
+  .auth-card h1,
+  .user-page-section h1 {
+    font-size: clamp(1.25rem, 6vw, 1.75rem);
+  }
+
+  .admin-head-actions,
+  .admin-module-head > .btn,
+  .admin-module-head > .admin-primary-button,
+  .admin-module-head > .admin-secondary-button {
+    width: 100%;
+  }
+
+  .admin-head-actions > *,
+  .admin-module-head > .btn,
+  .admin-module-head > .admin-primary-button,
+  .admin-module-head > .admin-secondary-button {
+    flex: 1 1 10rem;
+  }
+
+  .admin-dashboard-stat-grid,
+  .dashboard-stats-grid,
+  .admin-module-stats,
+  .users-stats-grid,
+  .bookings-stats-grid,
+  .reports-stats-grid,
+  .user-summary-grid,
+  .my-bookings-stats-grid,
+  .booking-history-stats-grid,
+  .payments-stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: .75rem;
+  }
+
+  .admin-dashboard-stat {
+    height: auto;
+    min-height: 7rem;
+  }
+
+  .admin-dashboard-stat small,
+  .admin-dashboard-stat em {
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .admin-slot-filters,
+  .manage-slots-filters,
+  .bookings-filters,
+  .users-filters,
+  .reports-filter-grid,
+  .payments-filter-grid,
+  .find-parking-grid,
+  .profile-modal-field-grid,
+  .profile-readonly-strip,
+  .form-grid,
+  .admin-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-slot-summary,
+  .admin-floor-overview,
+  .available-slots-grid,
+  .slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-slots-page .admin-floor-card,
+  .admin-slots-page .admin-slot-summary article {
+    height: auto;
+    min-height: 7rem;
+  }
+
+  .admin-slots-page .admin-floor-card p,
+  .admin-slots-page .admin-slot-summary small {
+    white-space: normal;
+  }
+
+  .admin-page .manage-slots-actions {
+    flex-wrap: wrap;
+  }
+
+  .admin-page .manage-slots-actions .btn,
+  .admin-row-actions button,
+  .admin-row-actions a {
+    min-height: 2.75rem;
+  }
+
+  .admin-responsive-table table,
+  .dashboard-table,
+  .user-responsive-table table,
+  .payments-page .user-responsive-table .payments-table {
+    min-width: 43rem;
+  }
+
+  .admin-modal-backdrop,
+  .modal-backdrop,
+  .admin-profile-modal-backdrop,
+  .profile-modal-backdrop,
+  .support-modal-backdrop {
+    align-items: center;
+    padding: .75rem;
+  }
+
+  .admin-modal,
+  .modal-card,
+  .admin-profile-modal,
+  .profile-modal,
+  .support-modal {
+    width: calc(100vw - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .admin-modal > header,
+  .admin-modal-body,
+  .support-modal,
+  .modal-card {
+    padding: 1rem;
+  }
+
+  .admin-modal-actions,
+  .support-modal-actions,
+  .profile-modal-actions,
+  .payment-placeholder-actions,
+  .booking-details-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-modal-actions > *,
+  .support-modal-actions > *,
+  .profile-modal-actions > *,
+  .payment-placeholder-actions > *,
+  .booking-details-actions > * {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+
+  .btn,
+  button,
+  [role="button"] {
+    min-height: 2.75rem;
+  }
+
+  .auth-login-shell { padding: .75rem; }
+  .auth-login-layout { width: 100%; min-height: 0; }
+  .auth-login-card,
+  .auth-register-card {
+    width: 100%;
+    max-width: 32rem;
+    padding: clamp(1.125rem, 5vw, 2rem);
+  }
+
+  .auth-login-hero { min-height: 12rem; }
+
+  .booking-summary-card,
+  .payment-placeholder-card,
+  .payments-wallet-card {
+    max-width: 100%;
+  }
+
+  .payments-wallet-card,
+  .payments-wallet-left {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .empty-state { padding: 2rem 1rem; }
+}
+
+/* Narrow mobile: protect the 320px viewport. */
+@media (max-width: 575px) {
+  .admin-content { padding-inline: .625rem; }
+  .user-content,
+  .container { padding-inline: .625rem; }
+
+  .admin-menu-toggle,
+  .user-menu-toggle,
+  .admin-notification-button,
+  .admin-avatar,
+  .user-topbar-avatar {
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-basis: 2.75rem;
+  }
+
+  .admin-topbar-actions { flex: 0 0 auto; }
+  .admin-topbar-title-wrap,
+  .user-topbar-left { gap: .5rem; }
+  .admin-topbar p,
+  .user-topbar-left p { display: none; }
+
+  .admin-slot-summary,
+  .admin-floor-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .available-slots-grid,
+  .slot-grid,
+  .direct-booking-slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reports-quick-filters,
+  .payments-tabs,
+  .booking-history-sort,
+  .my-bookings-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .auth-login-hero { display: none; }
+  .auth-login-layout { grid-template-columns: minmax(0, 1fr); }
+
+  .modal-card,
+  .admin-modal,
+  .admin-profile-modal,
+  .profile-modal,
+  .support-modal {
+    border-radius: 1rem;
+  }
+}
+
+/* Admin users: compact and readable create/edit account form. */
+.modal-card.user-account-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow-y: auto;
+}
+.user-account-modal > .dashboard-section-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  align-items: center;
+  margin: 0;
+  padding: 20px 70px 18px 22px;
+  border-bottom: 1px solid #e3ebf5;
+  background: #fff;
+}
+.user-account-modal > .dashboard-section-head h3 {
+  margin: 0;
+  color: #14243c;
+  font-size: 1.15rem;
+}
+.user-account-modal .modal-close {
+  top: 16px;
+  right: 20px;
+}
+.user-account-modal > .profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 22px;
+}
+.user-account-modal .form-group {
+  min-width: 0;
+  margin: 0;
+}
+.user-account-modal .form-group label {
+  display: block;
+  margin: 0 0 7px;
+  color: #455a74;
+  font-size: .76rem;
+  font-weight: 750;
+}
+.user-account-modal .form-group input,
+.user-account-modal .form-group select {
+  width: 100%;
+  height: 44px;
+  padding: 9px 12px;
+  border: 1px solid #cbd9e9;
+  border-radius: 9px;
+  background: #fff;
+  color: #17263d;
+  font-size: .88rem;
+}
+.user-account-modal .form-group input:focus,
+.user-account-modal .form-group select:focus {
+  border-color: #1976df;
+  outline: 3px solid rgba(25, 118, 223, .12);
+}
+.user-account-modal > .error-text {
+  margin: 0 22px 16px;
+}
+.user-account-modal > .manage-slots-actions {
+  justify-content: flex-end;
+  padding: 16px 22px 20px;
+  border-top: 1px solid #e8eef6;
+}
+.user-account-modal > .manage-slots-actions .btn {
+  min-width: 110px;
+  min-height: 42px;
+}
+
+@media (max-width: 600px) {
+  .modal-card.user-account-modal {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+  .user-account-modal > .profile-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 18px 16px;
+  }
+  .user-account-modal > .dashboard-section-head {
+    padding: 17px 58px 15px 16px;
+  }
+  .user-account-modal .modal-close {
+    top: 13px;
+    right: 14px;
+  }
+  .user-account-modal > .manage-slots-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 14px 16px 18px;
+  }
+  .user-account-modal > .manage-slots-actions .btn { width: 100%; }
+}
+
+/* Admin vehicles: focused vehicle-details dialog. */
+.reports-filter-card .reports-filter-grid {
+  width: 100%;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+}
+.reports-filter-card .form-group {
+  min-width: 0;
+  margin: 0;
+}
+.reports-filter-card .form-group input {
+  width: 100%;
+  height: 44px;
+}
+.reports-filter-card .reports-filter-actions {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+.reports-filter-card .reports-filter-actions .btn {
+  min-height: 44px;
+  padding-inline: 18px;
+}
+
+@media (max-width: 900px) {
+  .reports-filter-card .reports-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .reports-filter-card .reports-filter-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .reports-filter-card .reports-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reports-filter-card .reports-filter-actions {
+    grid-column: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .reports-filter-card .reports-filter-actions .btn { width: 100%; }
+}
+
+.payment-refund-backdrop { z-index: 1600; }
+.modal-card.payment-refund-modal {
+  width: min(460px, calc(100vw - 32px));
+  max-width: 460px;
+  padding: 24px;
+  overflow: visible;
+}
+.payment-refund-modal h3 { margin: 0 0 9px; color: #14243c; font-size: 1.15rem; }
+.payment-refund-modal p { margin: 0 0 18px; color: #5f7086; font-size: .86rem; line-height: 1.5; }
+.payment-refund-modal label,
+.payment-refund-modal label span { display: block; }
+.payment-refund-modal label span { margin-bottom: 7px; color: #455a74; font-size: .76rem; font-weight: 750; }
+.payment-refund-modal input {
+  width: 100%;
+  height: 44px;
+  padding: 9px 12px;
+  border: 1px solid #cbd9e9;
+  border-radius: 9px;
+  color: #17263d;
+  background: #fff;
+  font-size: .9rem;
+}
+.payment-refund-modal input:focus { border-color: #1976df; outline: 3px solid rgba(25, 118, 223, .12); }
+.payment-refund-modal > .manage-slots-actions { justify-content: flex-end; margin-top: 22px; }
+.payment-refund-modal > .manage-slots-actions .btn { min-width: 110px; min-height: 40px; }
+
+.vehicle-confirm-backdrop { z-index: 1600; }
+.modal-card.vehicle-confirm-modal {
+  width: min(460px, calc(100vw - 32px));
+  max-width: 460px;
+  padding: 24px;
+  overflow: visible;
+}
+.vehicle-confirm-modal h3 {
+  margin: 0 0 10px;
+  color: #14243c;
+  font-size: 1.15rem;
+}
+.vehicle-confirm-modal p {
+  margin: 0;
+  color: #5f7086;
+  font-size: .88rem;
+  line-height: 1.55;
+}
+.vehicle-confirm-modal > .manage-slots-actions {
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+.vehicle-confirm-modal > .manage-slots-actions .btn {
+  min-width: 100px;
+  min-height: 40px;
+}
+.vehicle-action-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 7px;
+  border-width: 2px;
+  border-color: rgba(255, 255, 255, .45);
+  border-top-color: currentColor;
+  vertical-align: -2px;
+}
+.vehicle-details-backdrop { z-index: 1600; }
+.modal-card.vehicle-details-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow-y: auto;
+}
+.vehicle-details-modal > .dashboard-section-head {
+  align-items: center;
+  margin: 0;
+  padding: 20px 70px 18px 22px;
+  border-bottom: 1px solid #e3ebf5;
+  background: #fff;
+}
+.vehicle-details-modal > .dashboard-section-head h3 {
+  margin: 0;
+  color: #14243c;
+  font-size: 1.15rem;
+}
+.vehicle-details-modal > .dashboard-section-head p {
+  margin: 4px 0 0;
+  color: #708198;
+  font-size: .8rem;
+}
+.vehicle-details-modal .modal-close { top: 16px; right: 20px; }
+.vehicle-details-modal > .booking-details-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 22px;
+}
+.vehicle-details-modal > .booking-details-grid > div {
+  min-width: 0;
+  padding: 14px;
+  overflow-wrap: anywhere;
+  border: 1px solid #e0eaf5;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+.vehicle-details-modal > .booking-details-grid strong,
+.vehicle-details-modal > .booking-details-grid span {
+  display: block;
+}
+.vehicle-details-modal > .booking-details-grid strong {
+  margin-bottom: 5px;
+  color: #687b92;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.vehicle-details-modal > .booking-details-grid span {
+  color: #17273e;
+  font-size: .88rem;
+  font-weight: 650;
+}
+
+@media (max-width: 600px) {
+  .modal-card.payment-refund-modal { width: calc(100vw - 24px); padding: 20px; }
+  .payment-refund-modal > .manage-slots-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .payment-refund-modal > .manage-slots-actions .btn { width: 100%; }
+  .modal-card.vehicle-confirm-modal {
+    width: calc(100vw - 24px);
+    padding: 20px;
+  }
+  .vehicle-confirm-modal > .manage-slots-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vehicle-confirm-modal > .manage-slots-actions .btn { width: 100%; }
+  .modal-card.vehicle-details-modal { width: calc(100vw - 24px); }
+  .vehicle-details-modal > .dashboard-section-head { padding: 17px 58px 15px 16px; }
+  .vehicle-details-modal .modal-close { top: 13px; right: 14px; }
+  .vehicle-details-modal > .booking-details-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar,
+  .user-sidebar,
+  .admin-sidebar-overlay,
+  .user-overlay {
+    transition-duration: .01ms;
+  }
+}
+
+/* Keep user navigation anchored while long pages scroll. */
+@media (min-width: 992px) {
+  .user-shell {
+    display: block;
+  }
+
+  .user-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 70;
+    width: 272px;
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .user-content {
+    width: calc(100% - 272px);
+    margin-left: 272px;
+  }
+}
+
+@media (max-width: 991px) {
+  .user-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+    height: 100dvh;
+    min-height: 0;
+    transform: translateX(-105%);
+    transition: transform .25s ease;
+  }
+
+  .user-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .user-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 950;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    opacity: 0;
+    pointer-events: none;
+    background: rgba(15, 23, 42, .52);
+    transition: opacity .2s ease;
+  }
+
+  .user-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .user-content {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+/* User dashboard booking visibility */
+.user-dashboard-recent {
+  min-width: 0;
+  padding: 1.375rem 1.5rem;
+}
+
+.user-dashboard-recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .875rem;
+}
+
+.user-dashboard-recent-head .btn {
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
+.user-dashboard-recent-state {
+  margin: 0;
+  padding: 2rem 1rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.user-dashboard-bookings-table {
+  min-width: 46rem;
+  margin: 0;
+  box-shadow: none;
+}
+
+.user-dashboard-bookings-table th,
+.user-dashboard-bookings-table td {
+  padding: .75rem .875rem;
+}
+
+.user-dashboard-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: .25rem .625rem;
+  border-radius: 999px;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.user-dashboard-status.status-reserved,
+.user-dashboard-status.status-active,
+.user-dashboard-status.status-occupied,
+.user-dashboard-status.status-approved,
+.user-dashboard-status.status-confirmed {
+  color: #087443;
+  background: #dcfce7;
+}
+
+.user-dashboard-status.status-completed {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.user-dashboard-status.status-cancelled,
+.user-dashboard-status.status-expired {
+  color: #b42318;
+  background: #fee2e2;
+}
+
+.user-dashboard-booking-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: .4rem .75rem;
+  border: 1px solid #bfdbfe;
+  border-radius: .55rem;
+  color: #075cca;
+  background: #eff6ff;
+  font-size: .78rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+@media (max-width: 767px) {
+  .user-dashboard-recent { padding: 1rem; }
+
+  .user-dashboard-recent-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-dashboard-recent-head .btn {
+    width: 100%;
+  }
+}
+
+.my-bookings-checkin-btn {
+  color: #fff;
+  border-color: #07834c;
+  background: #07834c;
+}
+
+.my-bookings-checkout-btn {
+  color: #fff;
+  border-color: #075cca;
+  background: #075cca;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .my-bookings-checkin-btn:hover { background: #05683c; }
+  .my-bookings-checkout-btn:hover { background: #064b9f; }
+}
+
+/* Polished booking workspace */
+.my-bookings-list-card {
+  padding: 1.35rem 1.4rem 1.1rem;
+  overflow: hidden;
+}
+
+.my-bookings-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.my-bookings-list-card .dashboard-table-wrap {
+  margin-top: 1rem;
+  border: 1px solid #d7e6f6;
+  border-radius: .9rem;
+  background: #fff;
+}
+
+.my-bookings-table {
+  min-width: 58rem;
+  margin: 0;
+  table-layout: auto;
+  box-shadow: none;
+}
+
+.my-bookings-table th {
+  padding: .8rem .85rem;
+  color: #52677f;
+  background: #edf6ff;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .035em;
+  line-height: 1.25;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.my-bookings-table td {
+  padding: 1rem .85rem;
+  border-bottom-color: #e5eef7;
+  color: #26374c;
+  font-size: .8rem;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.my-bookings-table tbody tr:last-child td { border-bottom: 0; }
+
+.my-bookings-id {
+  display: inline-grid;
+  min-width: 2.5rem;
+  min-height: 2.1rem;
+  place-items: center;
+  padding: .3rem .55rem;
+  border: 1px solid #cfe2f7;
+  border-radius: .65rem;
+  color: #075cca;
+  background: #f4f9ff;
+  font-weight: 850;
+}
+
+.my-bookings-location {
+  min-width: 9.5rem;
+  align-items: center;
+}
+
+.my-bookings-location-pin {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  place-items: center;
+  margin: 0;
+  border-radius: .65rem;
+  color: #075cca;
+  background: #e5f1ff;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.my-bookings-slot-pill {
+  min-width: 3.5rem;
+  height: 2rem;
+  border-radius: .6rem;
+}
+
+.my-bookings-schedule {
+  display: grid;
+  min-width: 9.6rem;
+  gap: .25rem;
+}
+
+.my-bookings-schedule strong { white-space: nowrap; }
+.my-bookings-schedule span {
+  color: #64748b;
+  font-size: .76rem;
+  white-space: nowrap;
+}
+
+.my-bookings-vehicle {
+  min-width: 7.4rem;
+}
+
+.my-bookings-amount {
+  display: block;
+  color: #07834c;
+  font-size: .9rem;
+  white-space: nowrap;
+}
+
+.my-bookings-table td:nth-last-child(2) {
+  max-width: 12rem;
+}
+
+.my-bookings-badge {
+  min-height: 1.75rem;
+  padding-inline: .7rem;
+  font-size: .7rem;
+  white-space: nowrap;
+}
+
+.my-bookings-action-cell {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(5.2rem, 1fr));
+  min-width: 11rem;
+  gap: .45rem;
+}
+
+.my-bookings-action-cell .btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.35rem;
+  height: auto;
+  padding: .5rem .65rem;
+  border-radius: .65rem;
+  font-size: .72rem;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.my-bookings-view-btn {
+  color: #34506f;
+  border-color: #d5e1ed;
+  background: #f3f6f9;
+}
+
+.my-bookings-cancel-btn {
+  color: #b42318;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.my-bookings-footer {
+  padding-top: .1rem;
+  font-size: .8rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .my-bookings-table tbody tr:hover { background: #f8fbff; }
+  .my-bookings-cancel-btn:hover {
+    color: #fff;
+    border-color: #dc2626;
+    background: #dc2626;
+  }
+}
+
+@media (max-width: 767px) {
+  .my-bookings-list-card { padding: 1rem; }
+  .my-bookings-table { min-width: 55rem; }
+  .my-bookings-action-cell { grid-template-columns: minmax(6rem, 1fr); }
+}
+
+/* Interactive user summary cards */
+.user-clickable-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+button.user-clickable-card {
+  appearance: none;
+}
+
+.my-bookings-stat.user-clickable-card,
+.booking-history-stat.user-clickable-card,
+.payments-stat.user-clickable-card {
+  border: 1px solid #dbeafe;
+}
+
+.user-clickable-card:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .25);
+  outline-offset: 3px;
+}
+
+.user-card-link-hint {
+  position: absolute;
+  right: 1rem;
+  bottom: .8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  color: #2563eb;
+  font-size: .7rem;
+  font-weight: 800;
+  opacity: .8;
+}
+
+.user-stat-arrow {
+  position: absolute;
+  right: .9rem;
+  top: .8rem;
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border-radius: 999px;
+  color: #64748b;
+  background: #f1f5f9;
+  font-size: .9rem;
+  transition: color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.my-bookings-stat.user-clickable-card,
+.booking-history-stat.user-clickable-card,
+.payments-stat.user-clickable-card {
+  padding-right: 3rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .user-clickable-card:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 16px 34px rgba(37, 99, 235, .13);
+    transform: translateY(-3px);
+  }
+
+  .user-clickable-card:hover .user-stat-arrow {
+    color: #fff;
+    background: #2563eb;
+    transform: translateX(2px);
+  }
+}
+
+@media (max-width: 575px) {
+  .user-card-link-hint {
+    position: static;
+    margin-top: .7rem;
+  }
+}
+
+/* Parking Slots filter form — compact aligned workspace */
+.admin-slots-page .admin-slot-filters {
+  grid-template-columns:
+    minmax(180px, 1.35fr)
+    minmax(130px, .95fr)
+    repeat(3, minmax(130px, 1fr))
+    minmax(200px, 1.25fr);
+  align-items: end;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.admin-slots-page .admin-slot-filters label {
+  display: grid;
+  min-width: 0;
+  align-content: end;
+  gap: 7px;
+}
+
+.admin-slots-page .admin-slot-filters label > span {
+  min-height: 14px;
+  color: #48627f;
+  font-size: .67rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: .045em;
+}
+
+.admin-slots-page .admin-slot-filters input,
+.admin-slots-page .admin-slot-filters select {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-color: #c7d7e8;
+  border-radius: 10px;
+  background: #fff;
+  color: #26384d;
+  font-size: .78rem;
+}
+
+.admin-slots-page .admin-slot-filters input::placeholder {
+  color: #8190a3;
+}
+
+.admin-slots-page .slots-page-size-control {
+  display: grid;
+  grid-template-columns: 64px minmax(112px, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-slots-page .slots-page-size-control select {
+  min-width: 0;
+  padding-inline: 10px 26px;
+}
+
+.admin-slots-page .slots-page-size-control .admin-secondary-button {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-color: #9fc5ed;
+  border-radius: 10px;
+  font-size: .72rem;
+}
+
+.admin-slots-page .admin-slot-filters input:focus,
+.admin-slots-page .admin-slot-filters select:focus {
+  outline: 3px solid rgba(37, 99, 235, .12);
+  border-color: #2563eb;
+}
+
+@media (max-width: 1250px) {
+  .admin-slots-page .admin-slot-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-slots-page .admin-slot-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-slots-page .admin-slot-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Parking Slots pagination */
+.admin-slots-page .admin-pagination {
+  min-width: 0;
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 13px 16px;
+  overflow: hidden;
+  border-top: 1px solid #dce7f3;
+  background: #fbfdff;
+}
+
+.admin-slots-page .admin-pagination-summary {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 16px;
+  min-width: max-content;
+  color: #60738b;
+  font-size: .76rem;
+  white-space: nowrap;
+}
+
+.admin-slots-page .admin-pagination-summary > span {
+  display: inline;
+  color: #60738b;
+  font-size: .76rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.admin-slots-page .admin-pagination-summary strong {
+  color: #20344e;
+}
+
+.admin-slots-page .admin-pagination-summary label {
+  display: flex;
+  align-items: center;
+  grid-auto-flow: initial;
+  gap: 7px;
+  color: #60738b;
+  font-size: .72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-slots-page .admin-pagination-summary select {
+  width: 62px;
+  height: 36px;
+  padding: 0 24px 0 9px;
+  border: 1px solid #c9d9ea;
+  border-radius: 8px;
+  background: #fff;
+  color: #264d73;
+  font-size: .74rem;
+}
+
+.admin-slots-page .admin-pagination-controls {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-slots-page .admin-pagination-controls button {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border: 1px solid #c9d9ea;
+  border-radius: 8px;
+  color: #24547f;
+  background: #fff;
+  font-size: .74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-slots-page .admin-pagination-controls .admin-pagination-nav {
+  width: auto;
+  min-width: 72px;
+  padding: 0 12px;
+}
+
+.admin-slots-page .admin-pagination-controls button.active {
+  color: #fff;
+  border-color: #1677e8;
+  background: #1677e8;
+  box-shadow: 0 5px 12px rgba(22, 119, 232, .2);
+}
+
+.admin-slots-page .admin-pagination-controls button:disabled:not(.active) {
+  color: #91a0b2;
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.admin-slots-page .admin-pagination-ellipsis {
+  display: grid;
+  width: 22px;
+  height: 36px;
+  place-items: center;
+  color: #718096;
+  font-size: .9rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-slots-page .admin-pagination-controls button:not(:disabled):hover {
+    border-color: #60a5fa;
+    color: #075cca;
+    background: #eff6ff;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-slots-page .admin-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-slots-page .admin-pagination-summary {
+    justify-content: space-between;
+    min-width: 0;
+  }
+
+  .admin-slots-page .admin-pagination-controls {
+    justify-content: flex-start;
+    padding-bottom: 3px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-slots-page .admin-pagination-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
 }

@@ -10,7 +10,7 @@
 }
 
 .available-slots-page .available-slots-grid {
-  grid-template-columns: minmax(140px, 1.3fr) repeat(4, minmax(110px, 1fr)) minmax(110px, 118px);
+  grid-template-columns: minmax(170px, 1.35fr) repeat(3, minmax(110px, 1fr)) minmax(150px, 1fr);
   column-gap: 16px;
   row-gap: 14px;
 }
@@ -351,4 +351,381 @@
 
 @media (prefers-reduced-motion: reduce) {
   .available-slot-details { animation: none; }
+}
+
+/* Refined available-slots workspace */
+.available-slots-page {
+  gap: 18px;
+}
+
+.available-slots-page .available-slots-hero {
+  position: relative;
+  align-items: center;
+  min-height: 132px;
+  padding: 26px 30px;
+  overflow: hidden;
+  border-color: #cfe2f7;
+  background:
+    radial-gradient(circle at 88% 15%, rgba(96, 165, 250, .18), transparent 28%),
+    linear-gradient(120deg, #fff 35%, #eef6ff 100%);
+}
+
+.available-slots-page .available-slots-hero::after {
+  position: absolute;
+  right: 8%;
+  bottom: -52px;
+  width: 150px;
+  height: 150px;
+  border: 22px solid rgba(37, 99, 235, .06);
+  border-radius: 50%;
+  content: '';
+  pointer-events: none;
+}
+
+.available-slots-eyebrow {
+  margin: 0 0 6px;
+  color: #1473e6 !important;
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.available-slots-page .available-slots-hero h2 {
+  margin: 0 0 7px;
+  color: #10213b;
+  font-size: clamp(1.45rem, 2.5vw, 2rem);
+}
+
+.available-slots-page .available-slots-kicker {
+  max-width: 650px;
+  margin: 0;
+  color: #60738b;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.available-slots-live-pill {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  color: #087443;
+  background: rgba(240, 253, 244, .9);
+  font-size: .74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.available-slots-live-pill > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, .13);
+}
+
+.available-slots-page .available-slots-filter {
+  padding: 20px 24px 22px;
+}
+
+.available-slots-filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e3edf7;
+}
+
+.available-slots-filter-head h3 {
+  margin: 0 0 3px;
+  color: #10213b;
+  font-size: 1rem;
+}
+
+.available-slots-filter-head p {
+  margin: 0;
+  color: #718096;
+  font-size: .76rem;
+}
+
+.available-slots-filter-head > span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #075cca;
+  background: #e7f2ff;
+  font-size: .7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.available-slots-page .available-slots-grid {
+  align-items: stretch;
+}
+
+.available-slots-page .available-slots-grid .form-group {
+  display: grid;
+  align-content: end;
+  gap: 7px;
+}
+
+.available-slots-page .available-slots-grid .form-group > label,
+.available-slots-page .available-slots-grid > label {
+  color: #53677f;
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.available-slots-page .available-slots-field {
+  min-height: 48px;
+  height: 48px;
+  border-color: #cddcec;
+  border-radius: 11px;
+  box-shadow: none;
+}
+
+.available-slots-page .available-slots-metric .available-slots-field {
+  position: relative;
+  height: 48px;
+  display: grid;
+  align-content: center;
+  gap: 1px;
+  padding-left: 16px;
+  overflow: hidden;
+  background: #f8fbff;
+}
+
+.available-slots-metric .available-slots-field::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #1473e6;
+  content: '';
+}
+
+.available-slots-metric.tone-green .available-slots-field::before { background: #16a34a; }
+.available-slots-metric.tone-purple .available-slots-field::before { background: #7c3aed; }
+
+.available-slots-metric .available-slots-field strong {
+  color: #10213b;
+  font-size: .92rem;
+  line-height: 1.1;
+}
+
+.available-slots-metric .available-slots-field span {
+  color: #7b8da3;
+  font-size: .62rem;
+}
+
+.available-slots-page .available-slots-search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 48px;
+  border-radius: 11px;
+  box-shadow: 0 8px 18px rgba(13, 102, 224, .18);
+}
+
+.available-slots-page .available-slots-map-card,
+.available-slots-page .available-slots-list-card {
+  padding: 24px 28px;
+  border-color: #cfe2f7;
+}
+
+.available-slots-page .available-slots-map-legend {
+  padding: 7px 10px;
+  border: 1px solid #e0eaf5;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.available-slots-page .slot-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.available-slots-page .available-slots-map {
+  padding: 18px;
+  border-radius: 18px;
+  background:
+    linear-gradient(rgba(255, 255, 255, .52), rgba(255, 255, 255, .52)),
+    repeating-linear-gradient(90deg, #edf5ff 0, #edf5ff 1px, transparent 1px, transparent 36px);
+}
+
+.available-slots-page .available-slots-location-group {
+  padding: 16px;
+  border-color: #cfe1f3;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 7px 18px rgba(25, 68, 120, .045);
+}
+
+.available-slots-location-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.available-slots-location-title > i {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border-radius: 9px;
+  color: #fff;
+  background: linear-gradient(145deg, #2585ff, #0759dc);
+  font-size: .76rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.available-slots-page .slot-chip {
+  min-width: 72px;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, .7);
+  border-radius: 11px;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, .1);
+  font-size: .78rem;
+}
+
+.available-slots-page .slot-chip.tone-available {
+  background: linear-gradient(145deg, #24c96d, #0faa58);
+}
+
+.available-slots-list-head > div:first-child h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.available-slots-list-head h3 > span {
+  display: grid;
+  min-width: 27px;
+  height: 27px;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: #075cca;
+  background: #e5f1ff;
+  font-size: .72rem;
+}
+
+.available-slots-list-head p {
+  margin: 0;
+  color: #718096;
+  font-size: .76rem;
+}
+
+.available-slots-page .available-slots-sort {
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: #60738b;
+  background: #f2f6fa;
+  font-size: .7rem;
+  white-space: nowrap;
+}
+
+.available-slots-page .available-spots-group-list .available-slots-item {
+  min-height: 168px;
+  padding: 16px;
+  border-color: #d7e5f4;
+  background: linear-gradient(145deg, #fff, #f9fcff);
+}
+
+.available-slots-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.available-slots-item-head > b {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: #087443;
+  background: #dcfce7;
+  font-size: .58rem;
+  font-weight: 850;
+}
+
+.available-slots-page .available-slots-item-price {
+  color: #087443;
+  font-size: .92rem;
+}
+
+.available-slots-page .available-slots-view-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid #e8eff7;
+}
+
+.available-slots-page .available-slots-feature-card {
+  border-color: #d5e5f5;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(25, 68, 120, .05);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .available-slots-page .available-slots-selectable:hover {
+    border-color: #60a5fa;
+    box-shadow: 0 14px 30px rgba(37, 99, 235, .13);
+    transform: translateY(-3px);
+  }
+}
+
+@media (max-width: 800px) {
+  .available-slots-page .available-slots-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px;
+  }
+
+  .available-slots-page .available-slots-location-filter {
+    grid-column: span 2;
+  }
+
+  .available-slots-page .available-slots-map-head {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .available-slots-page .available-slots-hero,
+  .available-slots-page .available-slots-filter,
+  .available-slots-page .available-slots-map-card,
+  .available-slots-page .available-slots-list-card {
+    padding: 17px;
+  }
+
+  .available-slots-filter-head {
+    align-items: flex-start;
+  }
+
+  .available-slots-page .available-slots-location-filter {
+    grid-column: auto;
+  }
+
+  .available-slots-page .available-slots-map-legend {
+    width: 100%;
+  }
+
+  .available-slots-page .slot-chip {
+    min-width: calc(50% - 5px);
+  }
+
+  .available-slots-list-head {
+    flex-direction: column;
+  }
 }

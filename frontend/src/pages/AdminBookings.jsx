@@ -274,7 +274,7 @@ export default function AdminBookings() {
         ))}
       </div>
 
-      <section className="card bookings-card">
+      <section className="card bookings-card admin-bookings-table-card">
         <div className="dashboard-section-head">
           <h3>Bookings Table</h3>
           <p>Manage booking records and admin actions.</p>
@@ -288,7 +288,7 @@ export default function AdminBookings() {
 
         {!loading && !error && !!groupedBookings.length && (
           <div className="dashboard-table-wrap">
-            <table className="dashboard-table">
+            <table className="dashboard-table admin-bookings-table">
               <thead>
                 <tr>
                   <th>Booking ID</th>

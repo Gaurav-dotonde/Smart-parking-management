@@ -70,6 +70,7 @@ public class BookingService {
         if (!safeRequest.getEndTime().isAfter(safeRequest.getStartTime())) {
             throw new IllegalArgumentException("End time must be after start time");
         }
+        validateVehicleAvailable(safeUser, safeRequest.getVehicleNumber());
 
         ParkingSlot slot = parkingSlotRepository.findByIdForUpdate(
                         Objects.requireNonNull(safeRequest.getSlotId(), "slotId must not be null"))
@@ -215,6 +216,60 @@ public class BookingService {
     }
 
     @Transactional
+    public BookingResponse transitionAsUser(User user, Long bookingId, String action) {
+        User safeUser = Objects.requireNonNull(user, "user must not be null");
+        Booking booking = bookingRepository.findByIdForUpdate(
+                        Objects.requireNonNull(bookingId, "bookingId must not be null"))
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        if (booking.getUser() == null || !booking.getUser().getId().equals(safeUser.getId())) {
+            throw new IllegalStateException("You cannot update another user's booking");
+        }
+
+        ParkingSlot slot = parkingSlotRepository.findByIdForUpdate(booking.getSlot().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Parking slot not found"));
+        LocalDateTime now = LocalDateTime.now();
+
+        switch (action) {
+            case "CHECK_IN" -> {
+                validateVehicleAvailable(safeUser, booking.getVehicleNumber());
+                if (!List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE).contains(booking.getStatus())) {
+                    throw new IllegalStateException("This booking is not ready for check-in");
+                }
+                if (now.isBefore(booking.getStartTime().minusMinutes(earlyCheckInMinutes))) {
+                    throw new IllegalStateException("Check-in is available only " + earlyCheckInMinutes
+                            + " minutes before the booking starts");
+                }
+                if (!now.isBefore(booking.getEndTime())) {
+                    throw new IllegalStateException("This booking has ended and cannot be checked in");
+                }
+                if (List.of(SlotStatus.MAINTENANCE, SlotStatus.INACTIVE, SlotStatus.DISABLED)
+                        .contains(slot.getStatus())) {
+                    throw new IllegalStateException("This parking slot is currently unavailable");
+                }
+                booking.setStatus(BookingStatus.OCCUPIED);
+                booking.setCheckedInAt(now);
+                booking.setOverstay(false);
+                slot.setStatus(SlotStatus.OCCUPIED);
+            }
+            case "CHECK_OUT" -> {
+                if (booking.getStatus() != BookingStatus.OCCUPIED || booking.getCheckedInAt() == null) {
+                    throw new IllegalStateException("Check-out is available only after check-in");
+                }
+                booking.setStatus(BookingStatus.COMPLETED);
+                booking.setCheckedOutAt(now);
+                booking.setCompletedAt(now);
+                booking.setOverstay(false);
+                slot.setStatus(SlotStatus.AVAILABLE);
+            }
+            default -> throw new IllegalArgumentException("Unsupported user booking action");
+        }
+
+        parkingSlotRepository.save(slot);
+        synchronizeLot(slot);
+        return toResponse(bookingRepository.save(booking));
+    }
+
+    @Transactional
     public AdminBookingResponse transitionAsAdmin(Long bookingId, String action) {
         Booking booking = bookingRepository.findById(Objects.requireNonNull(bookingId, "bookingId must not be null"))
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
@@ -227,6 +282,7 @@ public class BookingService {
             }
             case "CHECK_IN" -> {
                 LocalDateTime now = LocalDateTime.now();
+                validateVehicleAvailable(booking.getUser(), booking.getVehicleNumber());
                 if (!List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE).contains(booking.getStatus())) throw new IllegalStateException("Booking is not ready for check-in");
                 if (now.isBefore(booking.getStartTime().minusMinutes(earlyCheckInMinutes))) throw new IllegalStateException("Check-in is available only " + earlyCheckInMinutes + " minutes before the booking starts");
                 if (!now.isBefore(booking.getEndTime())) throw new IllegalStateException("This booking has expired and cannot be checked in");
@@ -331,6 +387,21 @@ public class BookingService {
         lot.setMaintenanceSlots(count(lot, SlotStatus.MAINTENANCE));
         lot.setDisabledSlots(count(lot, SlotStatus.INACTIVE) + count(lot, SlotStatus.DISABLED));
         parkingLotRepository.save(lot);
+    }
+
+    private void validateVehicleAvailable(User user, String vehicleNumber) {
+        if (vehicleNumber == null || vehicleNumber.isBlank()) {
+            return;
+        }
+        String normalized = vehicleNumber.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
+        vehicleRepository.findByRegistrationNormalized(normalized).ifPresent(vehicle -> {
+            if (!vehicle.getOwner().getId().equals(user.getId())) {
+                throw new IllegalStateException("This vehicle belongs to another user");
+            }
+            if (vehicle.isArchived() || !vehicle.isActive()) {
+                throw new IllegalStateException("This vehicle is inactive and cannot be used for booking or check-in");
+            }
+        });
     }
 
     private int count(ParkingLot lot, SlotStatus status) {

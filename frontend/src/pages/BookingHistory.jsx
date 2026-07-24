@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getMyBookings } from '../services/bookingService';
 
-function StatCard({ tone, label, value, subtext, icon }) {
+function StatCard({ tone, label, value, subtext, icon, onClick }) {
   return (
-    <article className={`booking-history-stat tone-${tone}`}>
+    <button type="button" className={`booking-history-stat user-clickable-card tone-${tone}`} onClick={onClick} aria-label={`View ${label}`}>
       <div className="booking-history-stat-icon">{icon}</div>
       <div>
         <span className="booking-history-stat-label">{label}</span>
         <strong className="booking-history-stat-value">{value}</strong>
         <span className="booking-history-stat-subtext">{subtext}</span>
       </div>
-    </article>
+      <span className="user-stat-arrow" aria-hidden="true">→</span>
+    </button>
   );
 }
 
@@ -53,6 +54,7 @@ function statusTone(status) {
 
 export default function BookingHistory() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,11 +83,16 @@ export default function BookingHistory() {
   }, []);
 
   const filteredBookings = useMemo(() => {
+    const requestedStatus = new URLSearchParams(location.search).get('status') || 'HISTORY';
     return bookings
       .slice()
-      .filter((booking) => ['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(booking.status))
+      .filter((booking) => requestedStatus === 'ALL'
+        ? true
+        : requestedStatus === 'HISTORY'
+          ? ['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(booking.status)
+          : booking.status === requestedStatus)
       .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-  }, [bookings]);
+  }, [bookings, location.search]);
 
   const stats = useMemo(() => {
     const total = bookings.length;
@@ -106,10 +113,10 @@ export default function BookingHistory() {
       </section>
 
       <section className="booking-history-stats-grid">
-        <StatCard tone="blue" label="Total Bookings" value={loading ? '...' : stats.total} subtext="All time" icon="📅" />
-        <StatCard tone="green" label="Completed" value={loading ? '...' : stats.completed} subtext="Finished bookings" icon="✓" />
-        <StatCard tone="red" label="Cancelled" value={loading ? '...' : stats.cancelled} subtext="Cancelled bookings" icon="✕" />
-        <StatCard tone="amber" label="Active" value={loading ? '...' : stats.active} subtext="Currently active" icon="⏱" />
+        <StatCard tone="blue" label="Total Bookings" value={loading ? '...' : stats.total} subtext="All time" icon="📅" onClick={() => navigate('/user/booking-history?status=ALL')} />
+        <StatCard tone="green" label="Completed" value={loading ? '...' : stats.completed} subtext="Finished bookings" icon="✓" onClick={() => navigate('/user/booking-history?status=COMPLETED')} />
+        <StatCard tone="red" label="Cancelled" value={loading ? '...' : stats.cancelled} subtext="Cancelled bookings" icon="✕" onClick={() => navigate('/user/booking-history?status=CANCELLED')} />
+        <StatCard tone="amber" label="Active" value={loading ? '...' : stats.active} subtext="Currently active" icon="⏱" onClick={() => navigate('/user/bookings?status=ACTIVE')} />
       </section>
 
       <section className="user-page-card booking-history-list-card">

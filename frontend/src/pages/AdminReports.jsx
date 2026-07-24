@@ -66,7 +66,7 @@ export default function AdminReports() {
       setStatusData(statusRes.data);
       setRevenue(revenueRes.data);
       setTopSlots(unwrapList(topSlotsRes.data));
-      setBookings(unwrapList(bookingsRes.data));
+      setBookings(unwrapList(bookingsRes.data).sort((a, b) => Number(a.bookingId) - Number(b.bookingId)));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load reports.');
     } finally {
