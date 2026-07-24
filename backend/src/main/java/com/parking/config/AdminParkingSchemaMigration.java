@@ -15,6 +15,9 @@ public class AdminParkingSchemaMigration implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        ensureBookingStatusCompatibility();
+        ensureBookingLifecycleColumns();
+        ensureSlotStatusCompatibility();
         if (!tableExists("parking_slots")) return;
         Integer duplicates = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM (
@@ -45,6 +48,79 @@ public class AdminParkingSchemaMigration implements ApplicationRunner {
         jdbcTemplate.update("UPDATE parking_slots SET ev_charging_available = FALSE WHERE ev_charging_available IS NULL");
         jdbcTemplate.update("UPDATE parking_slots SET accessible_slot = FALSE WHERE accessible_slot IS NULL");
         jdbcTemplate.update("UPDATE parking_slots SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL");
+    }
+
+    private void ensureBookingStatusCompatibility() {
+        if (!tableExists("bookings")) return;
+        String columnType = jdbcTemplate.queryForObject("""
+                SELECT COLUMN_TYPE
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'bookings'
+                  AND column_name = 'status'
+                """, String.class);
+        if (columnType != null && columnType.toLowerCase().startsWith("enum(")
+                && !columnType.toUpperCase().contains("'OCCUPIED'")) {
+            log.info("Expanding bookings.status values required by the existing admin booking lifecycle.");
+            jdbcTemplate.execute("""
+                    ALTER TABLE bookings MODIFY COLUMN status
+                    ENUM(
+                        'PENDING',
+                        'APPROVED',
+                        'RESERVED',
+                        'ACTIVE',
+                        'OCCUPIED',
+                        'CANCELLED',
+                        'COMPLETED',
+                        'PENDING_PAYMENT',
+                        'CONFIRMED',
+                        'EXPIRED'
+                    ) NOT NULL
+                    """);
+        }
+    }
+
+    private void ensureBookingLifecycleColumns() {
+        if (!tableExists("bookings")) return;
+        addColumn("bookings", "expired_at", "DATETIME NULL");
+        addColumn("bookings", "completed_at", "DATETIME NULL");
+        addColumn("bookings", "overstay", "BOOLEAN NOT NULL DEFAULT FALSE");
+        addColumn("bookings", "extended", "BOOLEAN NOT NULL DEFAULT FALSE");
+        addColumn("bookings", "extension_count", "INT NOT NULL DEFAULT 0");
+        addColumn("bookings", "original_end_time", "DATETIME NULL");
+        addColumn("bookings", "cancellation_reason", "VARCHAR(500) NULL");
+        addIndex("bookings", "idx_bookings_slot_window", "slot_id, start_time, end_time");
+        addIndex("bookings", "idx_bookings_status_start_end", "status, start_time, end_time");
+    }
+
+    private void ensureSlotStatusCompatibility() {
+        if (!tableExists("parking_slots")) return;
+        String columnType = jdbcTemplate.queryForObject("""
+                SELECT COLUMN_TYPE FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'parking_slots' AND column_name = 'status'
+                """, String.class);
+        if (columnType != null && columnType.toLowerCase().startsWith("enum(")
+                && !columnType.toUpperCase().contains("'INACTIVE'")) {
+            jdbcTemplate.execute("""
+                    ALTER TABLE parking_slots MODIFY COLUMN status
+                    ENUM('AVAILABLE','RESERVED','OCCUPIED','MAINTENANCE','INACTIVE','BOOKED','DISABLED') NOT NULL
+                    """);
+        }
+        jdbcTemplate.update("UPDATE parking_slots SET status = 'INACTIVE' WHERE status = 'DISABLED'");
+    }
+
+    private void addColumn(String table, String column, String definition) {
+        if (columnExists(table, column)) return;
+        log.info("Adding lifecycle column {}.{}.", table, column);
+        jdbcTemplate.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+    }
+
+    private boolean columnExists(String table, String column) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?
+                """, Integer.class, table, column);
+        return count != null && count > 0;
     }
 
     private void addIndex(String table, String indexName, String columns) {

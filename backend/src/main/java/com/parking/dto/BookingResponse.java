@@ -17,4 +17,11 @@ public class BookingResponse {
     private String vehicleNumber;
     private String vehicleType;
     private Double amount;
+    private LocalDateTime actualCheckInTime;
+    private LocalDateTime actualCheckOutTime;
+    private Boolean overstay;
+    private Boolean extended;
+    private Integer extensionCount;
+    private LocalDateTime originalEndTime;
+    private String lifecycleMessage;
 }

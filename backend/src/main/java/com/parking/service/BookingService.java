@@ -3,19 +3,24 @@ package com.parking.service;
 import com.parking.dto.AdminBookingResponse;
 import com.parking.dto.BookingRequest;
 import com.parking.dto.BookingResponse;
+import com.parking.dto.BatchBookingRequest;
+import com.parking.dto.BookingExtensionHistoryResponse;
+import com.parking.dto.BookingExtensionRequest;
+import com.parking.dto.BookingExtensionResponse;
 import com.parking.model.*;
 import com.parking.repository.BookingRepository;
 import com.parking.repository.ParkingSlotRepository;
 import com.parking.repository.ParkingLotRepository;
 import com.parking.repository.VehicleRepository;
 import com.parking.repository.PaymentRepository;
+import com.parking.repository.BookingExtensionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -31,6 +36,17 @@ public class BookingService {
     private final ParkingLotRepository parkingLotRepository;
     private final VehicleRepository vehicleRepository;
     private final PaymentRepository paymentRepository;
+    private final BookingExtensionRepository bookingExtensionRepository;
+
+    @Value("${parking.booking.early-checkin-minutes:15}")
+    private long earlyCheckInMinutes;
+    @Value("${parking.booking.extension-reminder-minutes:15}")
+    private long extensionReminderMinutes;
+    @Value("${parking.booking.extension-grace-minutes:15}")
+    private long extensionGraceMinutes;
+
+    private static final List<BookingStatus> OVERLAP_EXCLUDED =
+            List.of(BookingStatus.CANCELLED, BookingStatus.COMPLETED, BookingStatus.EXPIRED);
 
     /**
      * Concurrency-safe slot booking.
@@ -63,17 +79,25 @@ public class BookingService {
             throw new IllegalStateException("Selected parking lot is not available for booking");
         }
 
-        if (slot.getStatus() != SlotStatus.AVAILABLE) {
-            throw new IllegalStateException("Slot " + slot.getSlotNumber() + " is already booked");
+        if (List.of(SlotStatus.MAINTENANCE, SlotStatus.INACTIVE, SlotStatus.DISABLED, SlotStatus.OCCUPIED)
+                .contains(slot.getStatus())) {
+            throw new IllegalStateException("Slot " + slot.getSlotNumber() + " is not available for booking");
+        }
+        if (bookingRepository.hasOverlap(slot.getId(), safeRequest.getStartTime(), safeRequest.getEndTime(),
+                OVERLAP_EXCLUDED, null)) {
+            throw new IllegalStateException("This slot is already reserved for the selected time range");
         }
 
         long durationMinutes = Math.max(1, Duration.between(safeRequest.getStartTime(), safeRequest.getEndTime()).toMinutes());
         long days = Math.max(1, (long) Math.ceil(durationMinutes / 1440.0));
         double amount = days * slot.getParkingLot().getPricePerDay();
 
-        slot.setStatus(SlotStatus.BOOKED);
-        parkingSlotRepository.save(Objects.requireNonNull(slot, "slot must not be null"));
-        synchronizeLot(slot);
+        LocalDateTime now = LocalDateTime.now();
+        BookingStatus initialStatus = safeRequest.getStartTime().isAfter(now)
+                ? BookingStatus.RESERVED : BookingStatus.ACTIVE;
+        if (initialStatus == BookingStatus.ACTIVE) slot.setStatus(SlotStatus.RESERVED);
+        else if (slot.getStatus() == SlotStatus.BOOKED) slot.setStatus(SlotStatus.AVAILABLE);
+        parkingSlotRepository.save(slot);
 
         Booking booking = Booking.builder()
                 .user(safeUser)
@@ -81,7 +105,7 @@ public class BookingService {
                 .startTime(safeRequest.getStartTime())
                 .endTime(safeRequest.getEndTime())
                 .vehicleNumber(safeRequest.getVehicleNumber())
-                .status(BookingStatus.ACTIVE)
+                .status(initialStatus)
                 .amount(amount)
                 .paymentStatus(PaymentStatus.UNPAID)
                 .build();
@@ -103,19 +127,18 @@ public class BookingService {
             throw new IllegalStateException("You cannot cancel another user's booking");
         }
 
-        if (booking.getStatus() != BookingStatus.ACTIVE) {
-            throw new IllegalStateException("Only active bookings can be cancelled");
+        if (!List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE).contains(booking.getStatus())) {
+            throw new IllegalStateException("Only reserved or active bookings can be cancelled");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancelledAt(LocalDateTime.now());
         bookingRepository.save(Objects.requireNonNull(booking, "booking must not be null"));
 
         ParkingSlot slot = parkingSlotRepository.findByIdForUpdate(
                         Objects.requireNonNull(booking.getSlot().getId(), "slotId must not be null"))
                 .orElseThrow(() -> new IllegalArgumentException("Slot not found"));
-        slot.setStatus(SlotStatus.AVAILABLE);
-        parkingSlotRepository.save(Objects.requireNonNull(slot, "slot must not be null"));
-        synchronizeLot(slot);
+        releaseSlotIfSafe(slot, booking.getId(), LocalDateTime.now());
 
         return toResponse(booking);
     }
@@ -154,8 +177,8 @@ public class BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
 
-        if (booking.getStatus() == BookingStatus.CANCELLED || booking.getStatus() == BookingStatus.COMPLETED) {
-            throw new IllegalStateException("Completed or cancelled bookings cannot be cancelled");
+        if (!List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE).contains(booking.getStatus())) {
+            throw new IllegalStateException("Only reserved or active bookings can be cancelled");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -169,19 +192,26 @@ public class BookingService {
                         Objects.requireNonNull(booking.getSlot().getId(), "slotId must not be null"))
                 .orElseThrow(() -> new IllegalArgumentException("Slot not found"));
 
-        long activeBookings = bookingRepository.countBySlotIdAndStatusInAndIdNot(
-                slot.getId(),
-                Arrays.asList(BookingStatus.PENDING, BookingStatus.ACTIVE),
-                booking.getId()
-        );
-
-        if (activeBookings == 0) {
-            slot.setStatus(SlotStatus.AVAILABLE);
-            parkingSlotRepository.save(Objects.requireNonNull(slot, "slot must not be null"));
-            synchronizeLot(slot);
-        }
+        releaseSlotIfSafe(slot, booking.getId(), LocalDateTime.now());
 
         return toAdminResponse(booking);
+    }
+
+    @Transactional
+    public List<BookingResponse> bookBatch(User user, BatchBookingRequest request) {
+        if (!request.endTime().isAfter(request.startTime())) throw new IllegalArgumentException("End time must be after start time.");
+        if (request.vehicles().stream()
+                .map(item -> Objects.requireNonNull(item, "vehicle slot must not be null").slotId())
+                .distinct().count() != request.vehicles().size())
+            throw new IllegalArgumentException("Each vehicle must have a different parking slot.");
+        if (request.vehicles().stream().map(v -> v.vehicleNumber().replaceAll("[^A-Za-z0-9]", "").toUpperCase()).distinct().count() != request.vehicles().size())
+            throw new IllegalArgumentException("Each vehicle number must be unique.");
+        return request.vehicles().stream().map(item -> {
+            BookingRequest single = new BookingRequest();
+            single.setSlotId(item.slotId()); single.setStartTime(request.startTime()); single.setEndTime(request.endTime());
+            single.setVehicleNumber(item.vehicleNumber()); single.setVehicleType(item.vehicleType());
+            return bookSlot(user, single);
+        }).toList();
     }
 
     @Transactional
@@ -196,19 +226,97 @@ public class BookingService {
                 booking.setStatus(BookingStatus.APPROVED); booking.setApprovedAt(LocalDateTime.now()); slot.setStatus(SlotStatus.RESERVED);
             }
             case "CHECK_IN" -> {
-                if (!Arrays.asList(BookingStatus.APPROVED, BookingStatus.RESERVED, BookingStatus.ACTIVE).contains(booking.getStatus())) throw new IllegalStateException("Booking is not ready for check-in");
-                if (slot.getStatus() == SlotStatus.MAINTENANCE || slot.getStatus() == SlotStatus.DISABLED) throw new IllegalStateException("This slot cannot be occupied");
+                LocalDateTime now = LocalDateTime.now();
+                if (!List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE).contains(booking.getStatus())) throw new IllegalStateException("Booking is not ready for check-in");
+                if (now.isBefore(booking.getStartTime().minusMinutes(earlyCheckInMinutes))) throw new IllegalStateException("Check-in is available only " + earlyCheckInMinutes + " minutes before the booking starts");
+                if (!now.isBefore(booking.getEndTime())) throw new IllegalStateException("This booking has expired and cannot be checked in");
+                if (List.of(SlotStatus.MAINTENANCE, SlotStatus.INACTIVE, SlotStatus.DISABLED).contains(slot.getStatus())) throw new IllegalStateException("This slot cannot be occupied");
                 booking.setStatus(BookingStatus.OCCUPIED); booking.setCheckedInAt(LocalDateTime.now()); slot.setStatus(SlotStatus.OCCUPIED);
             }
             case "CHECK_OUT", "COMPLETE" -> {
-                if (!Arrays.asList(BookingStatus.OCCUPIED, BookingStatus.ACTIVE, BookingStatus.APPROVED, BookingStatus.RESERVED).contains(booking.getStatus())) throw new IllegalStateException("Booking cannot be completed from its current status");
-                booking.setStatus(BookingStatus.COMPLETED); booking.setCheckedOutAt(LocalDateTime.now()); slot.setStatus(SlotStatus.AVAILABLE);
+                if (booking.getStatus() != BookingStatus.OCCUPIED || booking.getCheckedInAt() == null) throw new IllegalStateException("Check-out cannot occur before check-in");
+                booking.setStatus(BookingStatus.COMPLETED); booking.setCheckedOutAt(LocalDateTime.now());
+                booking.setCompletedAt(LocalDateTime.now()); booking.setOverstay(false);
+                slot.setStatus(SlotStatus.AVAILABLE);
             }
             default -> throw new IllegalArgumentException("Unsupported booking action");
         }
         parkingSlotRepository.save(slot);
         synchronizeLot(slot);
         return toAdminResponse(bookingRepository.save(booking));
+    }
+
+    @Transactional
+    public BookingExtensionResponse extendBooking(User user, Long bookingId, BookingExtensionRequest request, ExtendedBy extendedBy) {
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        if (extendedBy == ExtendedBy.USER && !booking.getUser().getId().equals(user.getId())) {
+            throw new IllegalStateException("You cannot extend another user's booking");
+        }
+        if (!List.of(BookingStatus.ACTIVE, BookingStatus.OCCUPIED).contains(booking.getStatus())) {
+            throw new IllegalStateException("Only active or occupied bookings can be extended");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isAfter(booking.getEndTime().plusMinutes(extensionGraceMinutes))) {
+            throw new IllegalStateException("The permitted extension grace period has ended");
+        }
+        LocalDateTime newEndTime = request.newEndTime();
+        if (!newEndTime.isAfter(booking.getEndTime())) throw new IllegalArgumentException("New end time must be after the current end time");
+        ParkingSlot slot = parkingSlotRepository.findByIdForUpdate(booking.getSlot().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Slot not found"));
+        if (List.of(SlotStatus.MAINTENANCE, SlotStatus.INACTIVE, SlotStatus.DISABLED).contains(slot.getStatus())) {
+            throw new IllegalStateException("A maintenance or inactive slot cannot be extended");
+        }
+        ParkingLot lot = slot.getParkingLot();
+        if (lot.getClosingTime() != null && newEndTime.toLocalTime().isAfter(lot.getClosingTime())) {
+            throw new IllegalStateException("The parking location will be closed before the requested extension ends");
+        }
+        if (bookingRepository.hasOverlap(slot.getId(), booking.getEndTime(), newEndTime, OVERLAP_EXCLUDED, booking.getId())) {
+            throw new IllegalStateException("This slot is already reserved after your current booking. Extension is not available.");
+        }
+        long extraMinutes = Duration.between(booking.getEndTime(), newEndTime).toMinutes();
+        double extraAmount = Math.max(1, Math.ceil(extraMinutes / 1440.0)) * lot.getPricePerDay();
+        if (extraAmount > 0 && (request.paymentReference() == null || request.paymentReference().isBlank())) {
+            throw new IllegalStateException("Additional payment is required before confirming this extension");
+        }
+        LocalDateTime previousEnd = booking.getEndTime();
+        if (booking.getOriginalEndTime() == null) booking.setOriginalEndTime(previousEnd);
+        booking.setEndTime(newEndTime);
+        booking.setAmount(booking.getAmount() + extraAmount);
+        booking.setExtended(true);
+        booking.setExtensionCount((booking.getExtensionCount() == null ? 0 : booking.getExtensionCount()) + 1);
+        booking.setOverstay(false);
+        bookingRepository.save(booking);
+        bookingExtensionRepository.save(BookingExtension.builder()
+                .booking(booking).previousEndTime(previousEnd).newEndTime(newEndTime)
+                .extraMinutes((int) extraMinutes).extraAmount(extraAmount)
+                .paymentReference(request.paymentReference()).extendedBy(extendedBy).build());
+        return new BookingExtensionResponse(toResponse(booking), previousEnd, newEndTime, (int) extraMinutes,
+                extraAmount, extraAmount > 0, booking.getStatus().name());
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookingExtensionHistoryResponse> getExtensionHistory(User user, Long bookingId, boolean admin) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        if (!admin && !booking.getUser().getId().equals(user.getId())) throw new IllegalStateException("Access denied");
+        return bookingExtensionRepository.findByBookingIdOrderByCreatedAtDesc(bookingId).stream()
+                .map(item -> new BookingExtensionHistoryResponse(item.getId(), item.getPreviousEndTime(),
+                        item.getNewEndTime(), item.getExtraMinutes(), item.getExtraAmount(),
+                        item.getPaymentReference(), item.getExtendedBy().name(), item.getCreatedAt()))
+                .toList();
+    }
+
+    private void releaseSlotIfSafe(ParkingSlot slot, Long excludedBookingId, LocalDateTime now) {
+        if (slot.getStatus() == SlotStatus.OCCUPIED) return;
+        long current = bookingRepository.countCurrentOverlaps(slot.getId(),
+                List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE, BookingStatus.OCCUPIED),
+                now, excludedBookingId);
+        if (current == 0 && !List.of(SlotStatus.MAINTENANCE, SlotStatus.INACTIVE, SlotStatus.DISABLED).contains(slot.getStatus())) {
+            slot.setStatus(SlotStatus.AVAILABLE);
+            parkingSlotRepository.save(slot);
+            synchronizeLot(slot);
+        }
     }
 
     private void synchronizeLot(ParkingSlot slot) {
@@ -221,7 +329,7 @@ public class BookingService {
         lot.setReservedSlots(count(lot, SlotStatus.RESERVED));
         lot.setOccupiedSlots(count(lot, SlotStatus.OCCUPIED));
         lot.setMaintenanceSlots(count(lot, SlotStatus.MAINTENANCE));
-        lot.setDisabledSlots(count(lot, SlotStatus.DISABLED));
+        lot.setDisabledSlots(count(lot, SlotStatus.INACTIVE) + count(lot, SlotStatus.DISABLED));
         parkingLotRepository.save(lot);
     }
 
@@ -257,7 +365,14 @@ public class BookingService {
                 booking.getPaymentStatus() == null ? PaymentStatus.UNPAID.name() : booking.getPaymentStatus().name(),
                 booking.getVehicleNumber(),
                 booking.getSlot().getVehicleType(),
-                booking.getAmount()
+                booking.getAmount(),
+                booking.getCheckedInAt(),
+                booking.getCheckedOutAt(),
+                Boolean.TRUE.equals(booking.getOverstay()),
+                Boolean.TRUE.equals(booking.getExtended()),
+                booking.getExtensionCount() == null ? 0 : booking.getExtensionCount(),
+                booking.getOriginalEndTime(),
+                lifecycleMessage(booking)
         );
     }
 
@@ -275,7 +390,30 @@ public class BookingService {
                 booking.getEndTime(),
                 booking.getStatus().name(),
                 booking.getPaymentStatus() == null ? PaymentStatus.UNPAID.name() : booking.getPaymentStatus().name(),
-                booking.getAmount()
+                booking.getAmount(),
+                booking.getCheckedInAt(),
+                booking.getCheckedOutAt(),
+                Boolean.TRUE.equals(booking.getOverstay()),
+                Boolean.TRUE.equals(booking.getExtended()),
+                booking.getExtensionCount() == null ? 0 : booking.getExtensionCount(),
+                lifecycleMessage(booking)
         );
+    }
+
+    private String lifecycleMessage(Booking booking) {
+        if (Boolean.TRUE.equals(booking.getOverstay())) return "Your parking time has ended. Please extend or check out.";
+        LocalDateTime now = LocalDateTime.now();
+        if (List.of(BookingStatus.ACTIVE, BookingStatus.OCCUPIED).contains(booking.getStatus())
+                && !now.isAfter(booking.getEndTime())
+                && !now.isBefore(booking.getEndTime().minusMinutes(extensionReminderMinutes))) {
+            return "Your booking ends in " + extensionReminderMinutes + " minutes. Extend now if required.";
+        }
+        return switch (booking.getStatus()) {
+            case RESERVED -> "Your slot is reserved for " + booking.getStartTime() + ".";
+            case ACTIVE -> "Your booking is active. Please check in.";
+            case COMPLETED -> "Your parking session is completed.";
+            case EXPIRED -> "This booking expired because check-in was not completed.";
+            default -> "";
+        };
     }
 }

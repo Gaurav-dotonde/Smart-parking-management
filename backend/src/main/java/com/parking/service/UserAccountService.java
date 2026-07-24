@@ -112,7 +112,12 @@ public class UserAccountService {
                 booking.getPaymentStatus() == null ? PaymentStatus.UNPAID.name() : booking.getPaymentStatus().name(),
                 booking.getVehicleNumber(),
                 booking.getSlot().getVehicleType(),
-                booking.getAmount()
+                booking.getAmount(),
+                booking.getCheckedInAt(), booking.getCheckedOutAt(),
+                Boolean.TRUE.equals(booking.getOverstay()),
+                Boolean.TRUE.equals(booking.getExtended()),
+                booking.getExtensionCount() == null ? 0 : booking.getExtensionCount(),
+                booking.getOriginalEndTime(), ""
         );
     }
 }

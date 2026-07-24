@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLotById, getSlots, unwrapList } from '../services/parkingService';
-import { bookSlot } from '../services/bookingService';
+import { bookSlot, bookSlotsBatch } from '../services/bookingService';
 import { onParkingDataChanged } from '../services/dataSync';
+import { getMyVehicles } from '../services/vehicleService';
 import PaymentPlaceholderPage from '../payment/PaymentPlaceholderPage';
 import './SlotBooking.css';
 
@@ -92,11 +93,55 @@ export default function SlotBooking() {
   const [bookingSuccess, setBookingSuccess] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [paymentBooking, setPaymentBooking] = useState(null);
+  const [savedVehicles, setSavedVehicles] = useState([]);
+  const [vehicleMode, setVehicleMode] = useState('new');
+  const [vehicleEntries, setVehicleEntries] = useState([{ vehicleNumber: '', vehicleType: 'Car' }]);
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const paymentBookingRef = useRef(null);
   const bookingInProgressRef = useRef(false);
 
+  useEffect(() => {
+    getMyVehicles().then((response) => {
+      const vehicles = Array.isArray(response.data) ? response.data.filter((item) => item.active) : [];
+      setSavedVehicles(vehicles);
+      if (vehicles.length && !vehicleNumber) {
+        const first = vehicles[0];
+        setVehicleMode(String(first.id));
+        setVehicleNumber(first.registrationNumber);
+        setVehicleType(first.vehicleType === 'TWO_WHEELER' ? 'Two Wheeler' : 'Car');
+        setVehicleEntries([{ vehicleNumber: first.registrationNumber, vehicleType: first.vehicleType === 'TWO_WHEELER' ? 'Two Wheeler' : 'Car' }]);
+      }
+    }).catch(() => setSavedVehicles([]));
+  }, []);
+
+  const chooseVehicle = (value) => {
+    setVehicleMode(value);
+    setError('');
+    if (value === 'new') {
+      setVehicleNumber('');
+      return;
+    }
+    const selected = savedVehicles.find((item) => String(item.id) === value);
+    if (selected) {
+      setVehicleNumber(selected.registrationNumber);
+      setVehicleType(selected.vehicleType === 'TWO_WHEELER' ? 'Two Wheeler' : 'Car');
+    }
+  };
+
+  const setVehicleCount = (count) => {
+    const nextCount = Math.max(1, Math.min(10, Number(count) || 1));
+    setVehicleEntries((current) => Array.from({ length: nextCount }, (_, index) => current[index] || { vehicleNumber: '', vehicleType: 'Car' }));
+    setSelectedSlots((current) => current.slice(0, nextCount));
+    setError('');
+  };
+
+  const updateVehicleEntry = (index, patch) => {
+    setVehicleEntries((current) => current.map((entry, position) => position === index ? { ...entry, ...patch } : entry));
+    setError('');
+  };
+
   const loadSlots = useCallback(async () => {
-    const res = await getSlots(id);
+    const res = await getSlots(id, startTime, endTime);
     setSlots(unwrapList(res.data));
     setSelectedSlot((prev) => {
       const targetSlotId = prev?.id || (Number.isFinite(preselectedSlotId) && preselectedSlotId > 0 ? preselectedSlotId : null);
@@ -109,7 +154,7 @@ export default function SlotBooking() {
       }
       return fresh;
     });
-  }, [bookingFromSearch, id, preselectedSlotId]);
+  }, [bookingFromSearch, endTime, id, preselectedSlotId, startTime]);
 
   useEffect(() => {
     let active = true;
@@ -168,12 +213,13 @@ export default function SlotBooking() {
   const floors = useMemo(() => [...new Set(slots.map((slot) => Number(slot.floor)))].sort((a, b) => a - b), [slots]);
   const floorSlots = useMemo(() => slots.filter((slot) => Number(slot.floor) === Number(selectedFloor)), [selectedFloor, slots]);
   const availableFloorSlots = floorSlots.filter((slot) => slot.status === 'AVAILABLE').length;
-  const minimumStartTime = localDateTimeMinimum(new Date(Date.now() + 60000));
+  const minimumStartTime = localDateTimeMinimum(new Date());
+  const startIsPast = startTime && new Date(startTime).getTime() < Date.now() - 60000;
   const durationMinutes = startTime && endTime ? Math.max(0, Math.round((new Date(endTime) - new Date(startTime)) / 60000)) : 0;
   const durationText = durationMinutes > 0
     ? `${Math.floor(durationMinutes / 1440) ? `${Math.floor(durationMinutes / 1440)}d ` : ''}${Math.floor((durationMinutes % 1440) / 60)}h ${durationMinutes % 60}m`
     : '—';
-  const timeValidation = startTime && new Date(startTime) < new Date()
+  const timeValidation = startIsPast
     ? 'Start time cannot be in the past.'
     : startTime && endTime && new Date(endTime) <= new Date(startTime)
       ? 'End time must be after start time.'
@@ -182,6 +228,7 @@ export default function SlotBooking() {
   useEffect(() => {
     if (selectedSlot) {
       setSelectedFloor(Number(selectedSlot.floor));
+      setSelectedSlots((current) => current.length ? current : [selectedSlot]);
     } else if (selectedFloor === null && floors.length) {
       setSelectedFloor(floors[0]);
     }
@@ -191,33 +238,67 @@ export default function SlotBooking() {
     if (slot.status !== 'AVAILABLE') return;
     setNotice('');
     setError('');
-    setSelectedSlot(slot);
+    setSelectedSlots((current) => {
+      const exists = current.some((item) => item.id === slot.id);
+      const next = exists ? current.filter((item) => item.id !== slot.id)
+        : current.length < vehicleEntries.length ? [...current, slot] : [...current.slice(0, -1), slot];
+      setSelectedSlot(next[0] || null);
+      return next;
+    });
   };
 
   const goToNextStep = () => {
     setError('');
     if (currentStep === 1) {
-      const normalizedVehicleNumber = vehicleNumber.trim().replace(/\s+/g, ' ').toUpperCase();
-      if (!normalizedVehicleNumber) return setError('Please enter vehicle number.');
-      if (!/^[A-Z0-9- ]{4,20}$/i.test(normalizedVehicleNumber)) return setError('Enter a valid vehicle number using 4-20 letters, numbers, spaces, or hyphens.');
-      setVehicleNumber(normalizedVehicleNumber);
+      const normalized = vehicleEntries.map((entry) => ({ ...entry, vehicleNumber: entry.vehicleNumber.trim().replace(/\s+/g, ' ').toUpperCase() }));
+      if (normalized.some((entry) => !/^[A-Z0-9- ]{4,20}$/i.test(entry.vehicleNumber))) return setError('Enter a valid 4–20 character vehicle number for every vehicle.');
+      if (new Set(normalized.map((entry) => entry.vehicleNumber.replace(/[^A-Z0-9]/g, ''))).size !== normalized.length) return setError('Each vehicle number must be different.');
+      setVehicleEntries(normalized);
+      setVehicleNumber(normalized[0].vehicleNumber);
+      setVehicleType(normalized[0].vehicleType);
+      const automaticStart = new Date(Date.now() + 5 * 60 * 1000);
+      const automaticEnd = new Date(automaticStart.getTime() + 24 * 60 * 60 * 1000);
+      setStartTime(localDateTimeMinimum(automaticStart));
+      setEndTime(localDateTimeMinimum(automaticEnd));
+      setCurrentStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
-    if (currentStep === 2) {
-      if (!startTime || !endTime) return setError('Please select arrival and departure time.');
-      if (timeValidation || days() <= 0) return setError(timeValidation || 'End time must be after start time.');
-    }
-    if (currentStep === 3 && !selectedSlot) return setError('Please select an available slot.');
+    if (currentStep === 3 && selectedSlots.length !== vehicleEntries.length) return setError(`Select ${vehicleEntries.length} different slots, one for each vehicle.`);
     setCurrentStep((step) => Math.min(step + 1, 4));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const goToPreviousStep = () => {
     setError('');
-    setCurrentStep((step) => Math.max(step - 1, 1));
+    setCurrentStep((step) => step === 3 ? 1 : Math.max(step - 1, 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleProceedToPayment = async () => {
+    if (vehicleEntries.length > 1) {
+      setBooking(true);
+      bookingInProgressRef.current = true;
+      setError('');
+      try {
+        await bookSlotsBatch({
+          startTime,
+          endTime,
+          vehicles: vehicleEntries.map((vehicle, index) => ({
+            slotId: selectedSlots[index].id,
+            vehicleNumber: vehicle.vehicleNumber,
+            vehicleType: vehicle.vehicleType,
+          })),
+        });
+        navigate('/user/payments', { replace: true });
+      } catch (err) {
+        setError(err.response?.data?.message || 'Could not reserve all vehicle slots.');
+      } finally {
+        bookingInProgressRef.current = false;
+        setBooking(false);
+      }
+      return;
+    }
     const created = bookingSuccess || await handleConfirmBooking(false);
     if (!created) return;
     setCurrentStep(5);
@@ -232,7 +313,7 @@ export default function SlotBooking() {
       return;
     }
     if (!startTime || !endTime) {
-      setError('Please select start and end time.');
+      setError('Booking schedule could not be prepared. Please try again.');
       return;
     }
     if (!vehicleNumber.trim()) {
@@ -243,12 +324,12 @@ export default function SlotBooking() {
       setError('Enter a valid vehicle number using 4–20 letters, numbers, spaces, or hyphens.');
       return;
     }
-    if (new Date(startTime) < new Date()) {
-      setError('Start time cannot be in the past.');
+    if (new Date(startTime).getTime() < Date.now() - 60000) {
+      setError('The booking schedule has expired. Please try again.');
       return;
     }
     if (days() <= 0) {
-      setError('End time must be after start time.');
+      setError('The booking schedule is invalid. Please try again.');
       return;
     }
     setBooking(true);
@@ -296,8 +377,6 @@ export default function SlotBooking() {
       `Parking: ${bookingSuccess.lotName || lot?.name || '—'}`,
       `Slot: ${bookingSuccess.slotNumber || selectedSlot?.slotNumber || '—'}`,
       `Vehicle: ${bookingSuccess.vehicleNumber || vehicleNumber}`,
-      `Start: ${formatBookingDateTime(bookingSuccess.startTime || startTime)}`,
-      `End: ${formatBookingDateTime(bookingSuccess.endTime || endTime)}`,
       `Amount Paid: ₹${bookingSuccess.amount ?? totalAmount}`,
       `Status: ${bookingSuccess.status || 'CONFIRMED'}`,
     ].join('\n');
@@ -380,24 +459,6 @@ export default function SlotBooking() {
                   <input type="text" value={vehicleType} disabled />
                 </label>
 
-                <div className="booking-duration-card">
-                  <div className="booking-duration-head">
-                    <strong>Selected Duration</strong>
-                    <span>Locked from search</span>
-                  </div>
-                  <div className="booking-duration-grid">
-                    <div>
-                      <span>Start Time</span>
-                      <strong>{formatBookingDate(startTime)}</strong>
-                      <b>{formatBookingTime(startTime)}</b>
-                    </div>
-                    <div>
-                      <span>End Time</span>
-                      <strong>{formatBookingDate(endTime)}</strong>
-                      <b>{formatBookingTime(endTime)}</b>
-                    </div>
-                  </div>
-                </div>
               </section>
 
               <aside className="booking-checkout-card booking-summary-card">
@@ -476,28 +537,37 @@ export default function SlotBooking() {
             <nav className="direct-booking-steps" aria-label="Booking progress">
               <div className={currentStep > 1 ? 'is-complete' : currentStep === 1 ? 'is-active' : ''}><span>{currentStep > 1 ? '✓' : '1'}</span><div><strong>Vehicle Details</strong><small>Registration and type</small></div></div>
               <i />
-              <div className={currentStep > 2 ? 'is-complete' : currentStep === 2 ? 'is-active' : ''}><span>{currentStep > 2 ? '✓' : '2'}</span><div><strong>Visit Time</strong><small>Arrival and departure</small></div></div>
+              <div className={currentStep > 3 ? 'is-complete' : currentStep === 3 ? 'is-active' : ''}><span>{currentStep > 3 ? '✓' : '2'}</span><div><strong>Choose Slot</strong><small>Floor and parking bay</small></div></div>
               <i />
-              <div className={currentStep > 3 ? 'is-complete' : currentStep === 3 ? 'is-active' : ''}><span>{currentStep > 3 ? '✓' : '3'}</span><div><strong>Choose Slot</strong><small>Floor and parking bay</small></div></div>
+              <div className={currentStep > 4 ? 'is-complete' : currentStep === 4 ? 'is-active' : ''}><span>{currentStep > 4 ? '✓' : '3'}</span><div><strong>Review</strong><small>Check booking details</small></div></div>
               <i />
-              <div className={currentStep > 4 ? 'is-complete' : currentStep === 4 ? 'is-active' : ''}><span>{currentStep > 4 ? '✓' : '4'}</span><div><strong>Review</strong><small>Check booking details</small></div></div>
-              <i />
-              <div className={currentStep === 5 ? 'is-active' : ''}><span>5</span><div><strong>Payment</strong><small>Future integration</small></div></div>
+              <div className={currentStep === 5 ? 'is-active' : ''}><span>4</span><div><strong>Payment</strong><small>Complete payment</small></div></div>
             </nav>
 
             <div className="direct-booking-wizard">
               <div className="direct-booking-primary">
-                {(currentStep === 1 || currentStep === 2) && <section className="direct-booking-card">
+                {currentStep === 1 && <section className="direct-booking-card">
                   <div className="direct-booking-section-head">
-                    <div><span className="direct-booking-step">{currentStep}</span><div><h2>{currentStep === 1 ? 'Vehicle Details' : 'Visit Time'}</h2><p>{currentStep === 1 ? 'Tell us which vehicle you will bring.' : 'Select your arrival and departure date and time.'}</p></div></div>
+                    <div><span className="direct-booking-step">{currentStep}</span><div><h2>Vehicle Details</h2><p>Tell us which vehicle you will bring.</p></div></div>
                     <span className="direct-booking-required">All fields required</span>
                   </div>
 
                   <div className="direct-booking-form-grid">
-                    {currentStep === 1 && <>
-                    <label><span>▣ Vehicle Number</span><input aria-label="Vehicle number" type="text" value={vehicleNumber} maxLength={20} onChange={(event) => { setVehicleNumber(event.target.value.toUpperCase()); setError(''); }} placeholder="e.g. MH 12 AB 1234" autoComplete="off" /></label>
-                    <label><span>◇ Vehicle Type</span><select aria-label="Vehicle type" value={vehicleType} onChange={(event) => { setVehicleType(event.target.value); setError(''); }}><option value="Car">Car</option><option value="Two Wheeler">Two Wheeler</option></select></label>
-                    </>}
+                    {currentStep === 1 && <div className="booking-multi-vehicle-form">
+                      <div className="booking-vehicle-count">
+                        <div><strong>How many vehicles?</strong><small>One separate parking slot will be reserved for every vehicle.</small></div>
+                        <div><button type="button" onClick={() => setVehicleCount(vehicleEntries.length - 1)} disabled={vehicleEntries.length === 1}>−</button><strong>{vehicleEntries.length}</strong><button type="button" onClick={() => setVehicleCount(vehicleEntries.length + 1)} disabled={vehicleEntries.length === 10}>+</button></div>
+                      </div>
+                      <div className="booking-vehicle-entry-list">
+                        {vehicleEntries.map((entry, index) => (
+                          <article key={index} className="booking-vehicle-entry">
+                            <div className="booking-vehicle-entry-head"><span>{index + 1}</span><div><strong>Vehicle {index + 1}</strong><small>Enter or select this vehicle's details</small></div>{vehicleEntries.length > 1 && <button type="button" onClick={() => { setVehicleEntries((items) => items.filter((_, i) => i !== index)); setSelectedSlots((items) => items.slice(0, -1)); }}>Remove</button>}</div>
+                            {savedVehicles.length > 0 && <label><span>Use a saved vehicle</span><select value="" onChange={(event) => { const saved = savedVehicles.find((item) => String(item.id) === event.target.value); if (saved) updateVehicleEntry(index, { vehicleNumber: saved.registrationNumber, vehicleType: saved.vehicleType === 'TWO_WHEELER' ? 'Two Wheeler' : 'Car' }); }}><option value="">Select saved vehicle (optional)</option>{savedVehicles.map((item) => <option key={item.id} value={item.id}>{item.registrationNumber}</option>)}</select></label>}
+                            <div><label><span>Vehicle Number</span><input value={entry.vehicleNumber} maxLength="20" onChange={(event) => updateVehicleEntry(index, { vehicleNumber: event.target.value.toUpperCase() })} placeholder="e.g. MH 12 AB 1234" /></label><label><span>Vehicle Type</span><select value={entry.vehicleType} onChange={(event) => updateVehicleEntry(index, { vehicleType: event.target.value })}><option>Car</option><option>Two Wheeler</option></select></label></div>
+                          </article>
+                        ))}
+                      </div>
+                    </div>}
                     {currentStep === 2 && <>
                     <label><span>◷ Start Date &amp; Time</span><input aria-label="Start date and time" type="datetime-local" min={minimumStartTime} value={startTime} onChange={(event) => { setStartTime(event.target.value); if (endTime && event.target.value >= endTime) setEndTime(''); setError(''); }} /></label>
                     <label><span>◷ End Date &amp; Time</span><input aria-label="End date and time" type="datetime-local" min={startTime || minimumStartTime} value={endTime} onChange={(event) => { setEndTime(event.target.value); setError(''); }} /></label>
@@ -513,7 +583,7 @@ export default function SlotBooking() {
                   {error && <div className="direct-booking-inline-error direct-booking-step-error" role="alert">{error}</div>}
                   <div className="direct-booking-wizard-actions">
                     {currentStep > 1 && <button type="button" className="btn btn-secondary" onClick={goToPreviousStep}>← Back</button>}
-                    <button type="button" className="btn direct-booking-next" onClick={goToNextStep}>{currentStep === 1 ? 'Next: Visit Time' : 'Next: Choose Slot'} →</button>
+                    <button type="button" className="btn direct-booking-next" onClick={goToNextStep}>Next: Choose Slot →</button>
                   </div>
                 </section>}
 
@@ -538,18 +608,19 @@ export default function SlotBooking() {
 
                   <div className="direct-booking-slot-grid">
                     {floorSlots.map((slot) => {
-                      const selected = selectedSlot?.id === slot.id;
+                      const selectedIndex = selectedSlots.findIndex((item) => item.id === slot.id);
+                      const selected = selectedIndex >= 0;
                       const available = slot.status === 'AVAILABLE';
                       return (
                         <button key={slot.id} type="button" className={`${available ? 'is-available' : 'is-unavailable'}${selected ? ' is-selected' : ''}`} disabled={!available} onClick={() => handleSlotClick(slot)} aria-pressed={selected} aria-label={`${slot.slotNumber}, ${selected ? 'selected' : available ? 'available' : 'unavailable'}`}>
-                          <strong>{slot.slotNumber}</strong><small>{selected ? 'Selected' : available ? 'Available' : slot.status}</small>
+                          <strong>{slot.slotNumber}</strong><small>{selected ? `Vehicle ${selectedIndex + 1}` : available ? 'Available' : slot.status}</small>
                         </button>
                       );
                     })}
                   </div>
                   <div className="direct-booking-slot-selection" aria-live="polite">
-                    <div><span>Selected Slot</span><strong>{selectedSlot?.slotNumber || 'None'}</strong></div>
-                    <div><span>Floor</span><strong>{selectedSlot ? `Floor ${selectedSlot.floor}` : '—'}</strong></div>
+                    <div><span>Slots Selected</span><strong>{selectedSlots.length} / {vehicleEntries.length}</strong></div>
+                    <div><span>Still Required</span><strong>{Math.max(0, vehicleEntries.length - selectedSlots.length)}</strong></div>
                   </div>
                   {error && <div className="direct-booking-inline-error direct-booking-step-error" role="alert">{error}</div>}
                   <div className="direct-booking-wizard-actions"><button type="button" className="btn btn-secondary" onClick={goToPreviousStep}>← Back</button><button type="button" className="btn direct-booking-next" onClick={goToNextStep}>Next: Review Booking →</button></div>
@@ -558,22 +629,19 @@ export default function SlotBooking() {
 
               {currentStep === 4 && <aside className="direct-booking-summary">
                 <div className="direct-booking-summary-head"><span>Booking Summary</span><small>Review before confirming</small></div>
-                <div className="direct-booking-selected-slot">
-                  <span>Selected Slot</span>
-                  <strong>{selectedSlot?.slotNumber || 'Not selected'}</strong>
-                  <small>{selectedSlot ? `Floor ${selectedSlot.floor}` : 'Choose a green slot'}</small>
+                <div className="direct-booking-selected-slot booking-multi-slot-summary">
+                  <span>{vehicleEntries.length} Vehicle Reservations</span>
+                  {vehicleEntries.map((vehicle, index) => <div key={index}><strong>{vehicle.vehicleNumber}</strong><small>{vehicle.vehicleType} · Slot {selectedSlots[index]?.slotNumber} · Floor {selectedSlots[index]?.floor}</small></div>)}
                 </div>
                 <div className="direct-booking-summary-rows">
                   <div><span>Location</span><strong>{lot.name}</strong></div>
-                  <div><span>Vehicle</span><strong>{vehicleType}</strong></div>
-                  <div><span>Start</span><strong>{formatBookingDateTime(startTime)}</strong></div>
-                  <div><span>End</span><strong>{formatBookingDateTime(endTime)}</strong></div>
+                  <div><span>Vehicles</span><strong>{vehicleEntries.length}</strong></div>
                   <div><span>Duration</span><strong>{days() ? `${days()} ${days() === 1 ? 'day' : 'days'}` : '—'}</strong></div>
                   <div><span>Price / Day</span><strong>₹{lot.pricePerDay}</strong></div>
                 </div>
-                <div className="direct-booking-total"><span>Total Amount<small>Calculated by daily rate</small></span><strong>₹{totalAmount}</strong></div>
+                <div className="direct-booking-total"><span>Total Amount<small>{vehicleEntries.length} vehicle{vehicleEntries.length > 1 ? 's' : ''} × daily rate</small></span><strong>₹{totalAmount * vehicleEntries.length}</strong></div>
                 {error && <div className="direct-booking-inline-error" role="alert">{error}</div>}
-                <div className="direct-booking-wizard-actions"><button type="button" className="btn btn-secondary" onClick={goToPreviousStep}>← Back</button><button type="button" className="btn direct-booking-confirm" disabled={loading} onClick={handleProceedToPayment}>Proceed to Payment →</button></div>
+                <div className="direct-booking-wizard-actions"><button type="button" className="btn btn-secondary" onClick={goToPreviousStep}>← Back</button><button type="button" className="btn direct-booking-confirm" disabled={booking} onClick={handleProceedToPayment}>{booking ? 'Reserving...' : vehicleEntries.length > 1 ? `Reserve ${vehicleEntries.length} Slots →` : 'Proceed to Payment →'}</button></div>
                 <div className="direct-booking-security"><span>✓</span><div><strong>Secure instant booking</strong><small>Availability is verified again before confirmation.</small></div></div>
               </aside>}
               {currentStep === 5 && <PaymentPlaceholderPage

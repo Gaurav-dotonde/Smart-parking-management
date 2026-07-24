@@ -2,6 +2,11 @@ package com.parking.controller;
 
 import com.parking.dto.BookingRequest;
 import com.parking.dto.BookingResponse;
+import com.parking.dto.BatchBookingRequest;
+import com.parking.dto.BookingExtensionHistoryResponse;
+import com.parking.dto.BookingExtensionRequest;
+import com.parking.dto.BookingExtensionResponse;
+import com.parking.model.ExtendedBy;
 import com.parking.model.Role;
 import com.parking.model.User;
 import com.parking.service.BookingService;
@@ -26,6 +31,12 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.bookSlot(user, request));
     }
 
+    @PostMapping("/book-batch")
+    public ResponseEntity<List<BookingResponse>> bookBatch(@AuthenticationPrincipal User user,
+                                                            @Valid @RequestBody BatchBookingRequest request) {
+        return ResponseEntity.ok(bookingService.bookBatch(user, request));
+    }
+
     @PutMapping("/{id}/cancel")
     public ResponseEntity<BookingResponse> cancel(@AuthenticationPrincipal User user,
                                                     @PathVariable Long id) {
@@ -41,6 +52,23 @@ public class BookingController {
     public ResponseEntity<BookingResponse> booking(@AuthenticationPrincipal User user,
                                                    @PathVariable Long id) {
         return ResponseEntity.ok(bookingService.getUserBookingById(user, id));
+    }
+
+    @PostMapping("/{id}/extend")
+    public ResponseEntity<BookingExtensionResponse> extend(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id,
+            @Valid @RequestBody BookingExtensionRequest request
+    ) {
+        return ResponseEntity.ok(bookingService.extendBooking(user, id, request, ExtendedBy.USER));
+    }
+
+    @GetMapping("/{id}/extensions")
+    public ResponseEntity<List<BookingExtensionHistoryResponse>> extensionHistory(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(bookingService.getExtensionHistory(user, id, false));
     }
 
     @GetMapping("/user/{userId}")

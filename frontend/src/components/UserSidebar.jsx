@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 
 const items = [
   { label: 'Dashboard', to: '/user/dashboard', icon: 'dashboard' },
-  { label: 'Find Parking', to: '/user/find-parking', icon: 'search' },
   { label: 'Available Slots', to: '/user/available-slots', icon: 'slots' },
   { label: 'My Bookings', to: '/user/bookings', icon: 'bookings' },
   { label: 'Booking History', to: '/user/booking-history', icon: 'history' },

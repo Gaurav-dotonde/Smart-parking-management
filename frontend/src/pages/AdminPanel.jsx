@@ -16,8 +16,8 @@ import {
 
 const vehicleTypes = ['Two Wheeler', 'Car', 'SUV', 'Commercial Vehicle'];
 const slotTypes = ['STANDARD', 'COMPACT', 'LARGE', 'ACCESSIBLE', 'EV CHARGING', 'VIP'];
-const statuses = ['AVAILABLE', 'RESERVED', 'BOOKED', 'OCCUPIED', 'MAINTENANCE', 'DISABLED'];
-const editableStatuses = ['AVAILABLE', 'MAINTENANCE', 'DISABLED'];
+const statuses = ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'MAINTENANCE', 'INACTIVE'];
+const editableStatuses = ['AVAILABLE', 'MAINTENANCE', 'INACTIVE'];
 const pageSizes = [10, 25, 50, 100];
 const ordinalFloorNames = ['Ground', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth', 'Eleventh', 'Twelfth', 'Thirteenth', 'Fourteenth', 'Fifteenth', 'Sixteenth', 'Seventeenth', 'Eighteenth', 'Nineteenth', 'Twentieth'];
 const floorName = (floor) => Number.isInteger(Number(floor)) && Number(floor) >= 0 ? `${ordinalFloorNames[Number(floor)] || `Floor ${floor}`} Floor` : '—';
@@ -343,8 +343,7 @@ export default function AdminPanel() {
     ['booked', 'Booked', statusCounts.booked || 0, 'calendar'],
     ['reserved', 'Reserved', statusCounts.reserved || 0, 'bookmark'],
     ['occupied', 'Occupied', statusCounts.occupied || 0, 'car'],
-    ['maintenance', 'Maintenance', statusCounts.maintenance || 0, 'tool'],
-    ['disabled', 'Disabled', statusCounts.disabled || 0, 'ban']
+    ['maintenance', 'Maintenance', statusCounts.maintenance || 0, 'tool']
   ];
 
   return (
@@ -464,7 +463,7 @@ export default function AdminPanel() {
                               <DropdownItem onClick={() => openEdit(slot)}>Edit</DropdownItem>
                               <DropdownItem onClick={() => openStatus(slot, slot.status)}>Change Status</DropdownItem>
                               <DropdownItem onClick={() => openStatus(slot, 'MAINTENANCE')}>Mark Maintenance</DropdownItem>
-                              <DropdownItem onClick={() => openStatus(slot, 'DISABLED')}>Disable</DropdownItem>
+                              <DropdownItem onClick={() => openStatus(slot, 'INACTIVE')}>Disable</DropdownItem>
                             </DropdownTrigger>
                           </div>
                         </td>
@@ -547,7 +546,6 @@ export default function AdminPanel() {
           <div><span>Status</span><strong>{modalState.slot?.status}</strong></div>
           <div><span>Current Booking</span><strong>{modalState.slot?.currentBookingId ? `#${modalState.slot.currentBookingId}` : 'No active booking'}</strong><small>{modalState.slot?.currentUser} {modalState.slot?.currentUserEmail}</small></div>
           <div><span>Vehicle</span><strong>{modalState.slot?.currentVehicleNumber || 'N/A'}</strong></div>
-          <div><span>Booking window</span><strong>{modalState.slot?.bookingStartTime ? new Date(modalState.slot.bookingStartTime).toLocaleString() : 'N/A'}</strong><small>{modalState.slot?.bookingEndTime ? 'to ' + new Date(modalState.slot.bookingEndTime).toLocaleString() : ''}</small></div>
           <div><span>Created Date</span><strong>{modalState.slot?.createdAt ? new Date(modalState.slot.createdAt).toLocaleString() : 'N/A'}</strong></div>
           <div><span>Updated Date</span><strong>{modalState.slot?.updatedAt ? new Date(modalState.slot.updatedAt).toLocaleString() : 'N/A'}</strong></div>
           <div><span>Features</span><strong>{[modalState.slot?.evChargingAvailable && 'EV charging', modalState.slot?.accessibleSlot && 'Accessible'].filter(Boolean).join(', ') || 'Standard'}</strong></div>

@@ -306,7 +306,7 @@ export default function AdminUsers() {
           <form className="modal-card" onSubmit={submitUserForm}>
             <div className="dashboard-section-head">
               <h3>{formMode === 'create' ? 'Create Account' : 'Edit Account'}</h3>
-              <button type="button" className="modal-close" onClick={() => setFormMode(null)}>x</button>
+              <button type="button" className="modal-close" aria-label="Close account form" onClick={() => setFormMode(null)}>×</button>
             </div>
             <div className="profile-form-grid">
               <div className="form-group">
@@ -352,8 +352,8 @@ export default function AdminUsers() {
           <div className="modal-card">
             <div className="dashboard-section-head">
               <h3>User Details</h3>
-              <button type="button" className="modal-close" onClick={() => { setSelectedUser(null); setDetailsError(''); }}>
-                x
+              <button type="button" className="modal-close" aria-label="Close user details" onClick={() => { setSelectedUser(null); setDetailsError(''); }}>
+                ×
               </button>
             </div>
             {detailsLoading && <div className="empty-state">Loading details...</div>}
@@ -381,9 +381,9 @@ export default function AdminUsers() {
                           <th>Booking ID</th>
                           <th>Slot Number</th>
                           <th>Vehicle Number</th>
+                          <th>Start Date</th>
+                          <th>End Date</th>
                           <th>Status</th>
-                          <th>Start Time</th>
-                          <th>End Time</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -392,9 +392,9 @@ export default function AdminUsers() {
                             <td>{booking.bookingId}</td>
                             <td>{booking.slotNumber}</td>
                             <td>{booking.vehicleNumber}</td>
+                            <td>{formatDate(booking.startTime)}</td>
+                            <td>{formatDate(booking.endTime)}</td>
                             <td>{booking.bookingStatus}</td>
-                            <td>{formatDateTime(booking.startTime)}</td>
-                            <td>{formatDateTime(booking.endTime)}</td>
                           </tr>
                         ))}
                       </tbody>

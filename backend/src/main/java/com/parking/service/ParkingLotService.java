@@ -128,7 +128,7 @@ public class ParkingLotService {
         if (hasProtectedSlots) {
             throw new IllegalStateException("This parking location cannot be deleted while it contains booked, occupied, reserved, maintenance or disabled slots.");
         }
-        slots.forEach(slot -> { slot.setArchived(true); slot.setArchivedAt(LocalDateTime.now()); slot.setStatus(SlotStatus.DISABLED); });
+        slots.forEach(slot -> { slot.setArchived(true); slot.setArchivedAt(LocalDateTime.now()); slot.setStatus(SlotStatus.INACTIVE); });
         parkingSlotRepository.saveAll(slots);
         lot.setActive(false);
         lot.setArchived(true);
@@ -147,15 +147,26 @@ public class ParkingLotService {
     }
 
     @Transactional(readOnly = true)
-    public List<ParkingSlotResponse> getSlotsByLot(Long lotId) {
+    public List<ParkingSlotResponse> getSlotsByLot(Long lotId, LocalDateTime startTime, LocalDateTime endTime) {
         Long id = Objects.requireNonNull(lotId, "lotId must not be null");
         getLotById(id);
+        java.util.Set<Long> reservedSlotIds = startTime != null && endTime != null && endTime.isAfter(startTime)
+                ? new java.util.HashSet<>(bookingRepository.findReservedSlotIds(id, startTime, endTime,
+                    List.of(BookingStatus.CANCELLED, BookingStatus.COMPLETED, BookingStatus.EXPIRED)))
+                : java.util.Set.of();
         return parkingSlotRepository.findByParkingLotIdAndArchivedFalse(id).stream()
                 .map(slot -> new ParkingSlotResponse(
                         slot.getId(), slot.getParkingLot().getId(), slot.getParkingLot().getName(),
                         slot.getSlotNumber(), slot.getFloor(), slot.getVehicleType(),
-                        slot.getStatus().name(), slot.getVersion()))
+                        reservedSlotIds.contains(slot.getId()) && slot.getStatus() == SlotStatus.AVAILABLE
+                                ? SlotStatus.RESERVED.name() : slot.getStatus().name(),
+                        slot.getVersion()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ParkingSlotResponse> getSlotsByLot(Long lotId) {
+        return getSlotsByLot(lotId, null, null);
     }
 
     public List<AdminParkingSlotResponse> getAdminSlotsByLot(Long lotId) {
@@ -412,7 +423,7 @@ public class ParkingLotService {
 
         slot.setArchived(true);
         slot.setArchivedAt(LocalDateTime.now());
-        slot.setStatus(SlotStatus.DISABLED);
+        slot.setStatus(SlotStatus.INACTIVE);
         parkingSlotRepository.save(slot);
         synchronizeLotStatistics(slot.getParkingLot());
     }
@@ -510,7 +521,7 @@ public class ParkingLotService {
             withHistory.forEach(slot -> {
                 slot.setArchived(true);
                 slot.setArchivedAt(LocalDateTime.now());
-                slot.setStatus(SlotStatus.DISABLED);
+            slot.setStatus(SlotStatus.INACTIVE);
             });
             parkingSlotRepository.saveAll(withHistory);
             parkingSlotRepository.deleteAll(surplus.stream().filter(slot -> !withHistory.contains(slot)).toList());

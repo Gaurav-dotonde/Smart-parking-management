@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { payForBooking } from '../services/paymentService';
+import { getPaymentAvailability } from '../utils/paymentAvailability';
 import './payment.css';
 
 function formatDateTime(value) {
@@ -17,9 +18,11 @@ export default function PaymentPlaceholderPage({ bookingDraft, onBack, embedded 
   const [error, setError] = useState('');
   const [paid, setPaid] = useState(false);
   const Container = embedded ? 'section' : 'main';
+  const paymentAvailability = getPaymentAvailability(booking?.startTime);
 
   const completePayment = async () => {
     if (!booking?.id) { setError('Create the booking before making payment.'); return; }
+    if (!paymentAvailability.allowed) { setError(paymentAvailability.message); return; }
     setProcessing(true); setError('');
     try {
       await payForBooking(booking.id);
@@ -46,12 +49,12 @@ export default function PaymentPlaceholderPage({ bookingDraft, onBack, embedded 
           <div><span>Parking</span><strong>{booking?.lotName || 'Not available'}</strong></div>
           <div><span>Slot</span><strong>{booking?.slotNumber || 'Not selected'}</strong></div>
           <div><span>Vehicle</span><strong>{booking?.vehicleNumber || 'Not provided'}</strong></div>
-          <div><span>Visit starts</span><strong>{formatDateTime(booking?.startTime)}</strong></div>
+          <div><span>Booking Date</span><strong>{booking?.startTime ? new Date(booking.startTime).toLocaleDateString() : 'N/A'}</strong></div>
           <div><span>Payment status</span><strong className="payment-pending-text">UNPAID</strong></div>
         </div>
         <div className="payment-methods"><span>Choose payment method</span>{['UPI','CARD','NET BANKING'].map((item) => <button key={item} type="button" className={method === item ? 'active' : ''} onClick={() => setMethod(item)}>{item === 'UPI' ? '▣' : item === 'CARD' ? '▤' : '⌂'} {item}</button>)}</div>
-        {error && <p className="payment-placeholder-notice">{error}</p>}
-        <div className="payment-placeholder-actions"><button type="button" className="btn btn-secondary" onClick={onBack || (() => navigate(-1))}>← Back</button><button type="button" className="btn" disabled={processing || !booking?.id} onClick={completePayment}>{processing ? 'Processing...' : `Pay ₹${Number(booking?.amount || 0).toFixed(2)}`}</button></div>
+        {(error || !paymentAvailability.allowed) && <p className="payment-placeholder-notice">{error || paymentAvailability.message}</p>}
+        <div className="payment-placeholder-actions"><button type="button" className="btn btn-secondary" onClick={onBack || (() => navigate(-1))}>← Back</button><button type="button" className="btn" disabled={processing || !booking?.id || !paymentAvailability.allowed} onClick={completePayment}>{processing ? 'Processing...' : paymentAvailability.allowed ? `Pay ₹${Number(booking?.amount || 0).toFixed(2)}` : paymentAvailability.label}</button></div>
         <small>🔒 Secure demo payment · No card details are stored</small>
       </section>
     </Container>

@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface ParkingLotRepository extends JpaRepository<ParkingLot, Long> {
     List<ParkingLot> findByActiveTrueAndArchivedFalseOrderByCreatedAtDesc();
+    long countByActiveTrueAndArchivedFalse();
 
     boolean existsByNameIgnoreCaseAndLocationIgnoreCase(String name, String location);
 

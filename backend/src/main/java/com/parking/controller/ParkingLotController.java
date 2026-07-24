@@ -36,8 +36,12 @@ public class ParkingLotController {
     }
 
     @GetMapping("/{id}/slots")
-    public ResponseEntity<List<ParkingSlotResponse>> getSlots(@PathVariable Long id) {
-        return ResponseEntity.ok(parkingLotService.getSlotsByLot(id));
+    public ResponseEntity<List<ParkingSlotResponse>> getSlots(
+            @PathVariable Long id,
+            @RequestParam(required = false) java.time.LocalDateTime startTime,
+            @RequestParam(required = false) java.time.LocalDateTime endTime
+    ) {
+        return ResponseEntity.ok(parkingLotService.getSlotsByLot(id, startTime, endTime));
     }
 
     @GetMapping("/{id}/slots/admin")

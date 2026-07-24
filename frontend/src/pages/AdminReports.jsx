@@ -95,31 +95,6 @@ export default function AdminReports() {
     loadReports(range);
   };
 
-  const applyQuickRange = (type) => {
-    const today = new Date();
-    const end = today.toISOString().slice(0, 10);
-    let start = end;
-
-    if (type === '7days') {
-      const date = new Date(today);
-      date.setDate(today.getDate() - 6);
-      start = date.toISOString().slice(0, 10);
-    } else if (type === '30days') {
-      const date = new Date(today);
-      date.setDate(today.getDate() - 29);
-      start = date.toISOString().slice(0, 10);
-    } else if (type === 'month') {
-      const date = new Date(today.getFullYear(), today.getMonth(), 1);
-      start = date.toISOString().slice(0, 10);
-    }
-
-    setFromDate(start);
-    setToDate(end);
-    const range = { fromDate: start, toDate: end };
-    setAppliedRange(range);
-    loadReports(range);
-  };
-
   const statusSegments = useMemo(() => {
     if (!statusData) return [];
     const total = statusData.activeBookings + statusData.completedBookings + statusData.cancelledBookings || 1;
@@ -169,7 +144,7 @@ export default function AdminReports() {
         </button>
       </div>
 
-      <section className="card reports-card">
+      <section className="card reports-card reports-filter-card">
         <div className="reports-filter-grid">
           <div className="form-group">
             <label>From Date</label>
@@ -183,12 +158,6 @@ export default function AdminReports() {
             <button type="button" className="btn" onClick={applyFilter}>Apply Filter</button>
             <button type="button" className="btn btn-secondary" onClick={resetFilter}>Reset</button>
           </div>
-        </div>
-        <div className="reports-quick-filters">
-          <button type="button" className="btn btn-secondary" onClick={() => applyQuickRange('today')}>Today</button>
-          <button type="button" className="btn btn-secondary" onClick={() => applyQuickRange('7days')}>Last 7 Days</button>
-          <button type="button" className="btn btn-secondary" onClick={() => applyQuickRange('30days')}>Last 30 Days</button>
-          <button type="button" className="btn btn-secondary" onClick={() => applyQuickRange('month')}>This Month</button>
         </div>
       </section>
 

@@ -241,7 +241,7 @@ export default function Login() {
                 <input type="checkbox" />
                 <span>Remember Me</span>
               </label>
-              <span className="auth-forgot">Admin and User Login</span>
+              
             </div>
 
             {error && <p className="error-text auth-login-error">{error}</p>}

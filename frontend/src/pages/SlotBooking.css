@@ -377,3 +377,28 @@
   .saas-booking-success-backdrop,
   .saas-booking-success { animation: none; }
 }
+.booking-vehicle-picker { align-content:start; }
+.booking-vehicle-picker select + input { margin-top:8px; }
+.booking-vehicle-picker small { margin-top:6px; color:#168153; font-size:.7rem; font-weight:700; }
+.booking-multi-vehicle-form { grid-column:1/-1; display:grid; gap:14px; }
+.booking-vehicle-count { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 16px; border:1px solid #cfe0f2; border-radius:13px; background:#f6faff; }
+.booking-vehicle-count>div:first-child { display:grid; gap:3px; }
+.booking-vehicle-count small { color:#6b7f95; font-size:.72rem; }
+.booking-vehicle-count>div:last-child { display:flex; align-items:center; gap:13px; }
+.booking-vehicle-count button { width:34px; height:34px; border:1px solid #b9d3ee; border-radius:9px; color:#0878e8; background:#fff; font-size:1.25rem; cursor:pointer; }
+.booking-vehicle-count button:disabled { color:#9aa9b9; background:#eef2f6; cursor:not-allowed; }
+.booking-vehicle-count>div:last-child strong { min-width:20px; color:#102c4c; font-size:1.2rem; text-align:center; }
+.booking-vehicle-entry-list { display:grid; gap:10px; }
+.booking-vehicle-entry { display:grid; gap:11px; padding:14px; border:1px solid #d7e4f1; border-radius:13px; background:#fff; }
+.booking-vehicle-entry-head { display:flex; align-items:center; gap:9px; }
+.booking-vehicle-entry-head>span { display:grid; place-items:center; width:28px; height:28px; border-radius:8px; color:#0878e8; background:#e7f3ff; font-weight:850; }
+.booking-vehicle-entry-head>div { display:grid; flex:1; }
+.booking-vehicle-entry-head small { color:#7b8da1; font-size:.68rem; }
+.booking-vehicle-entry-head>button { border:0; color:#d33c55; background:transparent; font-size:.7rem; font-weight:750; cursor:pointer; }
+.booking-vehicle-entry>div:last-child { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.booking-vehicle-entry label { display:grid; gap:5px; }
+.booking-vehicle-entry label>span { color:#52677e; font-size:.7rem; font-weight:750; }
+.booking-multi-slot-summary { display:grid!important; gap:8px; text-align:left!important; }
+.booking-multi-slot-summary>div { padding:8px 10px; border-radius:9px; background:rgba(255,255,255,.75); }
+.booking-multi-slot-summary>div strong,.booking-multi-slot-summary>div small { display:block; }
+@media(max-width:600px){.booking-vehicle-count{align-items:flex-start;flex-direction:column}.booking-vehicle-entry>div:last-child{grid-template-columns:1fr}}

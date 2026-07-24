@@ -6,6 +6,8 @@ import com.parking.dto.UserProfileResponse;
 import com.parking.dto.UserProfileUpdateRequest;
 import com.parking.model.User;
 import com.parking.service.UserAccountService;
+import com.parking.repository.VehicleRepository;
+import com.parking.dto.AdminVehicleResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -22,6 +26,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserAccountController {
 
     private final UserAccountService userAccountService;
+    private final VehicleRepository vehicleRepository;
+
+    @GetMapping("/me/vehicles")
+    @Transactional(readOnly = true)
+    public List<AdminVehicleResponse> vehicles(@AuthenticationPrincipal User user) {
+        return vehicleRepository.findByOwnerIdAndArchivedFalseOrderByCreatedAtDesc(user.getId()).stream()
+            .map(v -> new AdminVehicleResponse(v.getId(), v.getOwner().getId(), v.getOwner().getName(),
+                v.getOwner().getEmail(), v.getRegistrationNumber(), v.getVehicleType(), v.getBrand(),
+                v.getModel(), v.getColor(), v.isActive(), v.getCreatedAt(), v.getUpdatedAt()))
+            .toList();
+    }
 
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> me(@AuthenticationPrincipal User user) {

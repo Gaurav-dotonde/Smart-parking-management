@@ -28,6 +28,7 @@ function statusTone(status) {
   return 'pending';
 }
 
+
 export default function BookingDetails() {
   const { id } = useParams();
   const navigate = useNavigate();

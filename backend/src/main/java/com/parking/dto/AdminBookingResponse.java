@@ -20,4 +20,10 @@ public class AdminBookingResponse {
     private String bookingStatus;
     private String paymentStatus;
     private Double amount;
+    private LocalDateTime actualCheckInTime;
+    private LocalDateTime actualCheckOutTime;
+    private Boolean overstay;
+    private Boolean extended;
+    private Integer extensionCount;
+    private String lifecycleMessage;
 }

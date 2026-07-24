@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { getMyBookings } from '../services/bookingService';
 import { createSupportTicket } from '../services/supportService';
+import { getPaymentAvailability } from '../utils/paymentAvailability';
 
 function StatCard({ tone, label, value, subtext, icon }) {
   return (
@@ -215,15 +216,16 @@ export default function Payments() {
                   <tr>
                     <th>Transaction</th>
                     <th>Location</th>
-                    <th>Date &amp; Time</th>
+                    <th>Booking Date</th>
                     <th>Amount</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPayments.map((booking) => (
-                    <tr key={booking.id}>
+                  {filteredPayments.map((booking) => {
+                    const paymentAvailability = getPaymentAvailability(booking.startTime);
+                    return <tr key={booking.id}>
                       <td>
                         <strong>PAY-{booking.id}</strong>
                         <div className="payments-subline">Booking #{booking.id} · {booking.slotNumber || 'Parking slot'}</div>
@@ -239,7 +241,6 @@ export default function Payments() {
                       </td>
                       <td>
                         <div>{formatDate(booking.startTime)}</div>
-                        <div className="payments-subline">{formatTime(booking.startTime)}</div>
                       </td>
                       <td>
                         <strong className="payments-amount">{formatCurrency(booking.amount)}</strong>
@@ -250,11 +251,11 @@ export default function Payments() {
                       </td>
                       <td>
                         {booking.paymentStatus !== 'PAID' && booking.status !== 'CANCELLED'
-                          ? <button type="button" className="btn payments-view-btn" onClick={() => navigate('/user/payment-placeholder', { state: { bookingDraft: booking } })}>Pay</button>
+                          ? <button type="button" className="btn payments-view-btn" disabled={!paymentAvailability.allowed} title={paymentAvailability.message} onClick={() => navigate('/user/payment-placeholder', { state: { bookingDraft: booking } })}>{paymentAvailability.allowed ? 'Pay' : paymentAvailability.label}</button>
                           : <button type="button" className="btn btn-secondary payments-view-btn" onClick={() => navigate(`/bookings/${booking.id}`)}>View</button>}
                       </td>
-                    </tr>
-                  ))}
+                    </tr>;
+                  })}
                 </tbody>
               </table>
             </div>

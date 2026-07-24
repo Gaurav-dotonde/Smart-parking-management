@@ -55,4 +55,23 @@ public class Booking {
     private LocalDateTime checkedInAt;
     private LocalDateTime checkedOutAt;
     private LocalDateTime cancelledAt;
+    private LocalDateTime expiredAt;
+    private LocalDateTime completedAt;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean overstay = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean extended = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer extensionCount = 0;
+
+    private LocalDateTime originalEndTime;
+
+    @Column(length = 500)
+    private String cancellationReason;
 }
