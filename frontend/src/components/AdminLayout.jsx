@@ -6,6 +6,7 @@ import { formatDisplayName } from '../utils/formatDisplayName';
 import { getAdminBookings } from '../services/bookingService';
 import { getAdminPayments } from '../services/paymentService';
 import { getAdminSupportTickets } from '../services/supportService';
+import { getAdminProfile } from '../services/userService';
 import { onParkingDataChanged } from '../services/dataSync';
 
 const routeTitles = {
@@ -22,7 +23,7 @@ const routeTitles = {
 };
 
 export default function AdminLayout() {
-  const { user, logoutUser } = useAuth();
+  const { user, logoutUser, updateUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const menuRef = useRef(null);
@@ -40,6 +41,7 @@ export default function AdminLayout() {
   const [title, subtitle] = routeTitles[location.pathname] || ['Admin', 'Smart Parking Management'];
   const adminName = formatDisplayName(user?.name, 'Administrator');
   const initial = adminName.charAt(0).toUpperCase();
+  const adminPhoto = user?.profilePhoto || user?.profilePhotoUrl || '';
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -51,6 +53,31 @@ export default function AdminLayout() {
     document.body.classList.toggle('navigation-drawer-open', sidebarOpen);
     return () => document.body.classList.remove('navigation-drawer-open');
   }, [sidebarOpen]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (user?.role !== 'ADMIN') return undefined;
+
+    getAdminProfile()
+      .then((response) => {
+        if (!mounted) return;
+        const profile = response.data || {};
+        if (profile.name || profile.profilePhotoUrl || profile.status) {
+          updateUser({
+            name: profile.name,
+            role: profile.role,
+            accountStatus: profile.status,
+            profilePhoto: profile.profilePhotoUrl || null,
+            profilePhotoUrl: profile.profilePhotoUrl || null,
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.role, updateUser]);
 
   const loadNotifications = async () => {
     setNotificationsLoading(true);
@@ -230,7 +257,9 @@ export default function AdminLayout() {
                 aria-expanded={profileOpen}
                 onClick={() => setProfileOpen((current) => !current)}
               >
-                <span className="admin-avatar">{initial}</span>
+                <span className="admin-avatar">
+                  {adminPhoto ? <img src={adminPhoto} alt="" aria-hidden="true" /> : initial}
+                </span>
                 <span className="admin-profile-copy">
                   <strong>{adminName}</strong>
                   <small>Administrator</small>
@@ -240,6 +269,8 @@ export default function AdminLayout() {
               {profileOpen && (
                 <div className="admin-profile-dropdown" role="menu">
                   <Link to="/admin/profile" role="menuitem">Admin Profile</Link>
+                  <Link to="/admin/profile?modal=edit" role="menuitem">Edit Profile</Link>
+                  <Link to="/admin/profile?modal=password" role="menuitem">Change Password</Link>
                   <button type="button" role="menuitem" onClick={handleLogout}>Logout</button>
                 </div>
               )}

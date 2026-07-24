@@ -104,13 +104,16 @@ export default function MyBookings() {
   const visibleBookings = useMemo(
     () => {
       const requestedStatus = new URLSearchParams(location.search).get('status') || 'CURRENT';
+      if (requestedStatus === 'ALL') {
+        return bookings;
+      }
       if (requestedStatus === 'ACTIVE') {
         return bookings.filter((booking) => ['ACTIVE', 'OCCUPIED'].includes(booking.status));
       }
       if (requestedStatus === 'UPCOMING') {
         return bookings.filter((booking) => ['PENDING', 'RESERVED', 'APPROVED', 'CONFIRMED'].includes(booking.status));
       }
-      return bookings.filter((booking) => ['PENDING', 'RESERVED', 'APPROVED', 'CONFIRMED', 'ACTIVE', 'OCCUPIED'].includes(booking.status));
+      return bookings;
     },
     [bookings, location.search]
   );
@@ -187,7 +190,7 @@ export default function MyBookings() {
         <div className="my-bookings-list-head">
           <div>
             <h3>Your Booking List</h3>
-            <p>Monitor booking status, timings, and amount.</p>
+            <p>Monitor your current and past booking status, timings, and amount.</p>
           </div>
         </div>
 
@@ -195,7 +198,7 @@ export default function MyBookings() {
         {loading && <p>Loading...</p>}
 
         {!loading && visibleBookings.length === 0 && (
-          <div className="empty-state">No current bookings. Completed, cancelled, and expired bookings are available in Booking History.</div>
+          <div className="empty-state">No bookings found yet.</div>
         )}
 
         {!loading && visibleBookings.length > 0 && (
@@ -255,7 +258,6 @@ export default function MyBookings() {
                     </td>
                     <td>
                       <StatusBadge status={booking.overstay ? 'OVERSTAY' : booking.status} />
-                      {booking.lifecycleMessage && <div className="my-bookings-subline">{booking.lifecycleMessage}</div>}
                     </td>
                     <td>
                       <div className="my-bookings-action-cell">
@@ -307,7 +309,7 @@ export default function MyBookings() {
         )}
 
         <div className="my-bookings-footer">
-          <span>Showing {visibleBookings.length} current bookings</span>
+          <span>Showing {visibleBookings.length} bookings</span>
           <div className="my-bookings-pagination">
             <button type="button" className="my-bookings-page-btn">‹</button>
             <button type="button" className="my-bookings-page-btn active">1</button>

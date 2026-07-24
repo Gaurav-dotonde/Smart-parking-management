@@ -9,8 +9,16 @@ export function AuthProvider({ children }) {
   });
 
   const loginUser = (authResponse) => {
-    const { token, id, name, email, role, accountStatus } = authResponse;
-    const userData = { id, name, email, role, accountStatus };
+    const { token, id, name, email, role, accountStatus, profilePhoto } = authResponse;
+    const userData = {
+      id,
+      name,
+      email,
+      role,
+      accountStatus,
+      profilePhoto: profilePhoto || null,
+      profilePhotoUrl: profilePhoto || null,
+    };
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);

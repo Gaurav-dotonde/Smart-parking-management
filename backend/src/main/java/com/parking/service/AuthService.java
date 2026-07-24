@@ -45,7 +45,7 @@ public class AuthService {
 
         userRepository.save(Objects.requireNonNull(user, "user must not be null"));
 
-        return new AuthResponse(null, user.getId(), user.getName(), user.getEmail(), user.getRole().name(), user.getAccountStatus().name());
+        return new AuthResponse(null, user.getId(), user.getName(), user.getEmail(), user.getRole().name(), user.getAccountStatus().name(), user.getProfilePhoto());
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -70,7 +70,7 @@ public class AuthService {
 
         adminProfileService.markSuccessfulLogin(user.getEmail());
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-        return new AuthResponse(token, user.getId(), user.getName(), user.getEmail(), user.getRole().name(), status.name());
+        return new AuthResponse(token, user.getId(), user.getName(), user.getEmail(), user.getRole().name(), status.name(), user.getProfilePhoto());
     }
 
     private AccountStatus normalizeStatus(User user) {
