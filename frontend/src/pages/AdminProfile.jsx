@@ -406,8 +406,14 @@ export default function AdminProfile() {
                 <label>Phone Number</label>
                 <input
                   value={editForm.phone}
-                  onChange={(e) => setEditForm((current) => ({ ...current, phone: e.target.value.replace(/\D/g, '') }))}
-                  placeholder="Enter phone number"
+                  onChange={(e) => setEditForm((current) => ({ ...current, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  placeholder="Enter 10-digit phone number"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  maxLength={10}
+                  minLength={10}
+                  pattern="[0-9]{10}"
+                  title="Phone number must contain exactly 10 digits"
                   required
                 />
               </div>
