@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDisplayName } from '../utils/formatDisplayName';
 import {
   blockAdminUser,
@@ -56,6 +56,7 @@ export default function AdminUsers() {
   const [formUserId, setFormUserId] = useState(null);
   const [userForm, setUserForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const usersTableRef = useRef(null);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -96,6 +97,20 @@ export default function AdminUsers() {
     active: users.filter((user) => user.accountStatus === 'ACTIVE').length,
     blocked: users.filter((user) => user.accountStatus === 'BLOCKED').length,
   }), [users]);
+
+  const showSummaryUsers = (key) => {
+    setSearch('');
+    setRoleFilter('All');
+    setStatusFilter(key === 'active' ? 'ACTIVE' : key === 'blocked' ? 'BLOCKED' : 'All');
+    window.requestAnimationFrame(() => usersTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  const handleSummaryKeyDown = (event, key) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      showSummaryUsers(key);
+    }
+  };
 
   const openDetails = async (userId) => {
     setDetailsLoading(true);
@@ -190,7 +205,15 @@ export default function AdminUsers() {
 
       <div className="dashboard-stats-grid users-stats-grid">
         {summaryCards.map((card) => (
-          <div key={card.key} className="card dashboard-stat-card">
+          <div
+            key={card.key}
+            className="card dashboard-stat-card"
+            role="button"
+            tabIndex={0}
+            aria-label={`Show ${card.title.toLowerCase()} in users table`}
+            onClick={() => showSummaryUsers(card.key)}
+            onKeyDown={(event) => handleSummaryKeyDown(event, card.key)}
+          >
             <div className={`dashboard-stat-icon admin-user-stat-icon ${card.tone}`}>
               <UserStatIcon type={card.key} />
             </div>
@@ -231,7 +254,7 @@ export default function AdminUsers() {
         </div>
       </section>
 
-      <section className="card users-card admin-users-table-card">
+      <section className="card users-card admin-users-table-card" ref={usersTableRef}>
         <div className="dashboard-section-head">
           <div><h3>Users Table</h3><p>View user records and control account-level actions.</p></div>
           <button type="button" className="btn" onClick={openCreateForm}>Create Account</button>

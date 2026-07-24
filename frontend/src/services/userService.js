@@ -36,7 +36,5 @@ export const deleteAdminUser = async (id) => {
 export const getAdminProfile = () => api.get('/admin/profile');
 export const updateAdminProfile = (data) => api.put('/admin/profile', data);
 export const changeAdminPassword = (data) => api.put('/admin/profile/change-password', data);
-export const uploadAdminProfilePhoto = (formData) => api.post('/admin/profile/photo', formData, {
-  headers: { 'Content-Type': 'multipart/form-data' },
-});
+export const uploadAdminProfilePhoto = (formData) => api.post('/admin/profile/photo', formData);
 export const deleteAdminProfilePhoto = () => api.delete('/admin/profile/photo');

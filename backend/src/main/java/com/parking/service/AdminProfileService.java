@@ -74,7 +74,7 @@ public class AdminProfileService {
         User admin = getCurrentAdmin();
         validatePhoto(file);
 
-        Path uploadDir = Paths.get("backend", "uploads", "profile-photos").toAbsolutePath().normalize();
+        Path uploadDir = resolveUploadRoot().resolve("profile-photos");
         try {
             Files.createDirectories(uploadDir);
             deleteExistingPhotoIfPresent(admin);
@@ -128,13 +128,29 @@ public class AdminProfileService {
         }
 
         String relativePath = admin.getProfilePhoto().replaceFirst("^/uploads/", "");
-        Path targetPath = Paths.get("backend", "uploads").toAbsolutePath().normalize().resolve(relativePath).normalize();
+        Path uploadRoot = resolveUploadRoot();
+        Path targetPath = uploadRoot.resolve(relativePath).normalize();
 
         try {
             Files.deleteIfExists(targetPath);
+            Path legacyPath = resolveLegacyUploadRoot().resolve(relativePath).normalize();
+            if (!legacyPath.equals(targetPath)) {
+                Files.deleteIfExists(legacyPath);
+            }
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to replace existing profile photo.");
         }
+    }
+
+    private Path resolveUploadRoot() {
+        Path workingDirectory = Paths.get("").toAbsolutePath().normalize();
+        return "backend".equalsIgnoreCase(String.valueOf(workingDirectory.getFileName()))
+                ? workingDirectory.resolve("uploads")
+                : workingDirectory.resolve("backend").resolve("uploads");
+    }
+
+    private Path resolveLegacyUploadRoot() {
+        return Paths.get("backend", "uploads").toAbsolutePath().normalize();
     }
 
     private String getExtension(String fileName) {
