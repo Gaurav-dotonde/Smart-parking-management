@@ -30,6 +30,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Optional<Booking> findFirstBySlotIdAndStatusInOrderByStartTimeAsc(Long slotId, List<BookingStatus> statuses);
 
     List<Booking> findByStatusIn(List<BookingStatus> statuses);
+    List<Booking> findByStatusInAndEndTimeAfter(List<BookingStatus> statuses, LocalDateTime endTime);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from Booking b where b.id = :id")

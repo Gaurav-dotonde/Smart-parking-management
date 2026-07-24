@@ -169,20 +169,32 @@ export default function AvailableSlots() {
   return (
     <div className="available-slots-page user-page-section">
       <section className="available-slots-hero user-page-card">
-        <p className="available-slots-kicker">Browse all currently available parking spaces.</p>
+        <div>
+          <p className="available-slots-eyebrow">Live parking availability</p>
+          <h2>Choose the right parking spot</h2>
+          <p className="available-slots-kicker">Compare locations, prices and live slot availability before booking.</p>
+        </div>
+        <div className="available-slots-live-pill">
+          <span aria-hidden="true" />
+          {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Live updates'}
+        </div>
       </section>
 
       <section className="available-slots-filter user-page-card">
+        <div className="available-slots-filter-head">
+          <div><h3>Find your space</h3></div>
+          <span>{lots.length} locations</span>
+        </div>
         <div className="available-slots-grid">
-          <label className="form-group">Location
+          <label className="form-group available-slots-location-filter">Location
             <select className="available-slots-field" value={selectedLotId} onChange={changeLot} disabled={loading || !lots.length}>
               <option value="">{lots.length ? 'All Locations' : 'No lots available'}</option>
               {lots.map((lot) => <option key={lot.id} value={lot.id}>{lot.name}</option>)}
             </select>
           </label>
-          <div className="form-group"><label>Available Slots</label><div className="available-slots-field">{loading ? 'Loading...' : availableSlots.length}</div></div>
-          <div className="form-group"><label>Price / Day</label><div className="available-slots-field">{priceLabel}</div></div>
-          <div className="form-group"><label>Total Slots</label><div className="available-slots-field">{loading ? 'Loading...' : filteredSlots.length}</div></div>
+          <div className="form-group available-slots-metric tone-green"><label>Available Slots</label><div className="available-slots-field"><strong>{loading ? '...' : availableSlots.length}</strong><span>ready to book</span></div></div>
+          <div className="form-group available-slots-metric tone-blue"><label>Price / Day</label><div className="available-slots-field"><strong>{priceLabel}</strong><span>current range</span></div></div>
+          <div className="form-group available-slots-metric tone-purple"><label>Total Slots</label><div className="available-slots-field"><strong>{loading ? '...' : filteredSlots.length}</strong><span>in selection</span></div></div>
           <label className="form-group">Vehicle Type
             <select className="available-slots-field" value={vehicleType} onChange={(event) => { setVehicleType(event.target.value); setExpandedLotIds(new Set()); setSelectedSlot(null); }}>
               <option value="All">All vehicles</option>
@@ -190,7 +202,6 @@ export default function AvailableSlots() {
               <option value="Two Wheeler">Two Wheeler</option>
             </select>
           </label>
-          <div className="available-slots-search"><button type="button" className="btn available-slots-search-btn" onClick={loadData} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button></div>
         </div>
         {error && <div className="error-text available-slots-error" role="alert">{error}</div>}
       </section>
@@ -209,7 +220,7 @@ export default function AvailableSlots() {
               return (
                 <section key={group.lot.id} className="available-slots-location-group">
                   <div className="available-slots-location-head">
-                    <div><strong>{group.lot.name}</strong><span>{group.slots.length} total · {group.availableSlots.length} available</span></div>
+                    <div className="available-slots-location-title"><i aria-hidden="true">P</i><div><strong>{group.lot.name}</strong><span>{group.slots.length} total · {group.availableSlots.length} available</span></div></div>
                     {group.slots.length > previewSize && <button type="button" onClick={() => toggleLot(group.lot.id)}>{expanded ? 'Show Less' : `View More (${group.slots.length - previewSize})`}</button>}
                   </div>
                   <div className="available-slots-row">{groupSlots.map((slot) => <SlotChip key={slot.id} slot={slot} selected={selectedSlot?.id === slot.id} onSelect={selectSlot} />)}</div>
@@ -220,7 +231,7 @@ export default function AvailableSlots() {
         </div>
 
         <div className="available-slots-list-card user-page-card">
-          <div className="available-slots-list-head"><h3>Available Spots ({availableSlots.length})</h3><div className="available-slots-sort">By slot number</div></div>
+          <div className="available-slots-list-head"><div><h3>Available Spots <span>{availableSlots.length}</span></h3><p>Select a card to review complete slot details.</p></div><div className="available-slots-sort">Sorted by slot number</div></div>
           <div className={`available-slots-list-layout${selectedSlot ? ' has-details' : ''}`}>
             <div className="available-slots-list-column">
               <div className="available-slots-list">
@@ -232,7 +243,7 @@ export default function AvailableSlots() {
                   return (
                     <section key={group.lot.id} className="available-spots-location-group">
                       <div className="available-slots-location-head">
-                        <div><strong>{group.lot.name}</strong><span>{group.availableSlots.length} available spots</span></div>
+                        <div className="available-slots-location-title"><i aria-hidden="true">P</i><div><strong>{group.lot.name}</strong><span>{group.availableSlots.length} available spots</span></div></div>
                         {group.availableSlots.length > previewSize && <button type="button" onClick={() => toggleLot(group.lot.id)}>{expanded ? 'Show Less' : `View More (${group.availableSlots.length - previewSize})`}</button>}
                       </div>
                       <div className="available-spots-group-list">
@@ -251,10 +262,10 @@ export default function AvailableSlots() {
                               }
                             }}
                           >
-                            <div><strong>{slot.slotNumber}</strong><span>{slot.lotName}</span></div>
+                            <div className="available-slots-item-head"><div><strong>{slot.slotNumber}</strong><span>{slot.lotName}</span></div><b>Available</b></div>
                             <div className="available-slots-item-meta">Floor {slot.floor}</div>
                             <div className="available-slots-item-price">₹{slot.pricePerDay} / day</div>
-                            <span className="available-slots-view-details">View Details</span>
+                            <span className="available-slots-view-details">View details <b aria-hidden="true">→</b></span>
                           </article>
                         ))}
                       </div>

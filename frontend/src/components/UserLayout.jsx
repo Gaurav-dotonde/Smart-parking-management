@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import UserSidebar from './UserSidebar';
 import { useAuth } from '../context/AuthContext';
@@ -40,9 +40,31 @@ export default function UserLayout() {
     return 'User Portal';
   }, [location.pathname]);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    document.body.classList.toggle('navigation-drawer-open', mobileOpen);
+    return () => document.body.classList.remove('navigation-drawer-open');
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, []);
+
   return (
     <div className="user-shell">
-      <div className={`user-overlay ${mobileOpen ? 'show' : ''}`} onClick={() => setMobileOpen(false)} />
+      <button
+        type="button"
+        className={`user-overlay ${mobileOpen ? 'show' : ''}`}
+        aria-label="Close navigation"
+        onClick={() => setMobileOpen(false)}
+      />
       <UserSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <main className="user-content">
@@ -53,6 +75,7 @@ export default function UserLayout() {
               className="user-menu-toggle"
               onClick={() => setMobileOpen((current) => !current)}
               aria-label="Toggle user sidebar"
+              aria-expanded={mobileOpen}
             >
               <span />
               <span />

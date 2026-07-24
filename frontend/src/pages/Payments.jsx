@@ -4,16 +4,17 @@ import { getMyBookings } from '../services/bookingService';
 import { createSupportTicket } from '../services/supportService';
 import { getPaymentAvailability } from '../utils/paymentAvailability';
 
-function StatCard({ tone, label, value, subtext, icon }) {
+function StatCard({ tone, label, value, subtext, icon, onClick }) {
   return (
-    <article className={`payments-stat tone-${tone}`}>
+    <button type="button" className={`payments-stat user-clickable-card tone-${tone}`} onClick={onClick} aria-label={`View ${label}`}>
       <div className="payments-stat-icon">{icon}</div>
       <div>
         <span className="payments-stat-label">{label}</span>
         <strong className="payments-stat-value">{value}</strong>
         <span className="payments-stat-subtext">{subtext}</span>
       </div>
-    </article>
+      <span className="user-stat-arrow" aria-hidden="true">→</span>
+    </button>
   );
 }
 
@@ -162,10 +163,10 @@ export default function Payments() {
       </section>
 
       <section className="payments-stats-grid">
-        <StatCard tone="blue" label="Total Spent" value={loading ? '...' : formatCurrency(stats.totalSpent)} subtext="All time" icon="💳" />
-        <StatCard tone="green" label="Booking Payments" value={loading ? '...' : stats.totalBookings} subtext="Linked bookings" icon="🟢" />
-        <StatCard tone="amber" label="Active Bookings" value={loading ? '...' : stats.activeBookings} subtext="Currently active" icon="⏰" />
-        <StatCard tone="purple" label="Cancelled Bookings" value={loading ? '...' : stats.cancelledBookings} subtext="No payment record" icon="🏷" />
+        <StatCard tone="blue" label="Total Spent" value={loading ? '...' : formatCurrency(stats.totalSpent)} subtext="All transactions" icon="💳" onClick={() => { setActiveTab('history'); resetFilters(); }} />
+        <StatCard tone="green" label="Booking Payments" value={loading ? '...' : stats.totalBookings} subtext="Linked bookings" icon="🟢" onClick={() => { setActiveTab('history'); resetFilters(); }} />
+        <StatCard tone="amber" label="Active Bookings" value={loading ? '...' : stats.activeBookings} subtext="Currently active" icon="⏰" onClick={() => navigate('/user/bookings?status=ACTIVE')} />
+        <StatCard tone="purple" label="Cancelled Bookings" value={loading ? '...' : stats.cancelledBookings} subtext="Booking history" icon="🏷" onClick={() => navigate('/user/booking-history?status=CANCELLED')} />
       </section>
 
       <section className="payments-wallet-card user-page-card">

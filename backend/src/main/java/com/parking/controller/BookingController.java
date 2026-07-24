@@ -43,6 +43,18 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.cancelBooking(user, id));
     }
 
+    @PutMapping("/{id}/check-in")
+    public ResponseEntity<BookingResponse> checkIn(@AuthenticationPrincipal User user,
+                                                    @PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.transitionAsUser(user, id, "CHECK_IN"));
+    }
+
+    @PutMapping("/{id}/check-out")
+    public ResponseEntity<BookingResponse> checkOut(@AuthenticationPrincipal User user,
+                                                     @PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.transitionAsUser(user, id, "CHECK_OUT"));
+    }
+
     @GetMapping("/my")
     public ResponseEntity<List<BookingResponse>> myBookings(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(bookingService.getUserBookings(user.getId()));

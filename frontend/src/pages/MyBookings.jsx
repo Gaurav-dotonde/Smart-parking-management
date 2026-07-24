@@ -1,20 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getMyBookings, cancelBooking, extendBooking } from '../services/bookingService';
+import { getMyBookings, cancelBooking, checkInBooking, checkOutBooking, extendBooking } from '../services/bookingService';
 import { unwrapList } from '../services/parkingService';
 import { getPaymentAvailability } from '../utils/paymentAvailability';
 import { formatBookingDuration } from '../utils/formatBookingDuration';
 
-function StatCard({ tone, label, value, subtext, icon }) {
+function StatCard({ tone, label, value, subtext, icon, onClick }) {
   return (
-    <article className={`my-bookings-stat tone-${tone}`}>
+    <button type="button" className={`my-bookings-stat user-clickable-card tone-${tone}`} onClick={onClick} aria-label={`View ${label}`}>
       <div className="my-bookings-stat-icon">{icon}</div>
       <div>
         <span className="my-bookings-stat-label">{label}</span>
         <strong className="my-bookings-stat-value">{value}</strong>
         <span className="my-bookings-stat-subtext">{subtext}</span>
       </div>
-    </article>
+      <span className="user-stat-arrow" aria-hidden="true">→</span>
+    </button>
   );
 }
 
@@ -50,6 +51,7 @@ export default function MyBookings() {
   const [extensionTarget, setExtensionTarget] = useState(null);
   const [extensionMinutes, setExtensionMinutes] = useState(60);
   const [extensionSaving, setExtensionSaving] = useState(false);
+  const [statusActionId, setStatusActionId] = useState(null);
 
   const load = (silent = false) => {
     if (!silent) setLoading(true);
@@ -100,8 +102,17 @@ export default function MyBookings() {
   }, [bookings]);
 
   const visibleBookings = useMemo(
-    () => bookings.filter((booking) => ['RESERVED', 'ACTIVE', 'OCCUPIED'].includes(booking.status)),
-    [bookings]
+    () => {
+      const requestedStatus = new URLSearchParams(location.search).get('status') || 'CURRENT';
+      if (requestedStatus === 'ACTIVE') {
+        return bookings.filter((booking) => ['ACTIVE', 'OCCUPIED'].includes(booking.status));
+      }
+      if (requestedStatus === 'UPCOMING') {
+        return bookings.filter((booking) => ['PENDING', 'RESERVED', 'APPROVED', 'CONFIRMED'].includes(booking.status));
+      }
+      return bookings.filter((booking) => ['PENDING', 'RESERVED', 'APPROVED', 'CONFIRMED', 'ACTIVE', 'OCCUPIED'].includes(booking.status));
+    },
+    [bookings, location.search]
   );
 
   const confirmExtension = async () => {
@@ -125,13 +136,33 @@ export default function MyBookings() {
     }
   };
 
+  const handleStatusAction = async (booking, action) => {
+    setStatusActionId(booking.id);
+    setError('');
+    setSuccessMessage('');
+    try {
+      if (action === 'CHECK_IN') {
+        await checkInBooking(booking.id);
+        setSuccessMessage(`Checked in successfully at slot ${booking.slotNumber}. Check-Out is now available.`);
+      } else {
+        await checkOutBooking(booking.id);
+        setSuccessMessage(`Checked out successfully from slot ${booking.slotNumber}. Your booking is now completed.`);
+      }
+      load(true);
+    } catch (err) {
+      setError(err.response?.data?.message || `${action === 'CHECK_IN' ? 'Check-In' : 'Check-Out'} failed.`);
+    } finally {
+      setStatusActionId(null);
+    }
+  };
+
   return (
     <div className="my-bookings-page user-page-section">
       {successMessage && (
         <div className="my-bookings-success" role="status" aria-live="polite">
           <span className="my-bookings-success-icon">✓</span>
           <div>
-            <strong>Parking slot booked successfully!</strong>
+            <strong>Booking updated successfully!</strong>
             <p>{successMessage}</p>
           </div>
           <button type="button" aria-label="Close success message" onClick={() => setSuccessMessage('')}>×</button>
@@ -146,10 +177,10 @@ export default function MyBookings() {
       </section>
 
       <section className="my-bookings-stats-grid">
-        <StatCard tone="blue" label="Total Bookings" value={stats.total} subtext="All time" icon="📅" />
-        <StatCard tone="green" label="Upcoming" value={stats.upcoming} subtext="Next 7 days" icon="🚗" />
-        <StatCard tone="amber" label="Completed" value={stats.completed} subtext="All completed" icon="⏰" />
-        <StatCard tone="red" label="Cancelled" value={stats.cancelled} subtext="All time" icon="✕" />
+        <StatCard tone="blue" label="Total Bookings" value={stats.total} subtext="All time" icon="📅" onClick={() => navigate('/user/booking-history?status=ALL')} />
+        <StatCard tone="green" label="Upcoming" value={stats.upcoming} subtext="Next reservations" icon="🚗" onClick={() => navigate('/user/bookings?status=UPCOMING')} />
+        <StatCard tone="amber" label="Completed" value={stats.completed} subtext="All completed" icon="⏰" onClick={() => navigate('/user/booking-history?status=COMPLETED')} />
+        <StatCard tone="red" label="Cancelled" value={stats.cancelled} subtext="All time" icon="✕" onClick={() => navigate('/user/booking-history?status=CANCELLED')} />
       </section>
 
       <section className="user-page-card my-bookings-list-card">
@@ -172,16 +203,14 @@ export default function MyBookings() {
             <table className="dashboard-table my-bookings-table">
               <thead>
                 <tr>
-                  <th>Booking ID</th>
+                  <th>Booking</th>
                   <th>Location</th>
-                  <th>Slot Details</th>
-                  <th>Booking Date</th>
-                  <th>Start Time</th>
-                  <th>End Time</th>
+                  <th>Slot</th>
+                  <th>Schedule</th>
                   <th>Vehicle</th>
                   <th>Amount</th>
                   <th>Status</th>
-                  <th>Action</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,14 +218,14 @@ export default function MyBookings() {
                   const paymentAvailability = getPaymentAvailability(booking.startTime);
                   return <tr key={booking.id}>
                     <td>
-                      <strong>#{booking.bookingId || booking.id}</strong>
+                      <span className="my-bookings-id">#{booking.bookingId || booking.id}</span>
                     </td>
                     <td>
                       <div className="my-bookings-location">
-                        <span className="my-bookings-location-pin">📍</span>
+                        <span className="my-bookings-location-pin" aria-hidden="true">⌖</span>
                         <div>
                           <strong>{booking.lotName}</strong>
-                          <div className="my-bookings-subline">Basement - 1</div>
+                          <div className="my-bookings-subline">Parking location</div>
                         </div>
                       </div>
                     </td>
@@ -204,17 +233,24 @@ export default function MyBookings() {
                       <span className="my-bookings-slot-pill">{booking.slotNumber}</span>
                       <div className="my-bookings-subline">{booking.vehicleType || 'Four Wheeler'}</div>
                     </td>
-                    <td>{new Date(booking.startTime).toLocaleDateString()}</td>
-                    <td>{new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                    <td>{new Date(booking.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                     <td>
-                      <div className="my-bookings-vehicle">
-                        <strong>{booking.vehicleNumber || 'N/A'}</strong>
-                        <div className="my-bookings-subline">White • Swift</div>
+                      <div className="my-bookings-schedule">
+                        <strong>{new Date(booking.startTime).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
+                        <span>
+                          {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {' – '}
+                          {new Date(booking.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     </td>
                     <td>
-                      <strong className="my-bookings-amount">₹{booking.amount}</strong>
+                      <div className="my-bookings-vehicle">
+                        <strong>{booking.vehicleNumber || 'N/A'}</strong>
+                        <div className="my-bookings-subline">{booking.vehicleType || 'Vehicle'}</div>
+                      </div>
+                    </td>
+                    <td>
+                      <strong className="my-bookings-amount">₹{Number(booking.amount || 0).toLocaleString('en-IN')}</strong>
                       <div className="my-bookings-subline">{formatBookingDuration(booking.startTime, booking.endTime)}</div>
                     </td>
                     <td>
@@ -229,6 +265,26 @@ export default function MyBookings() {
                         {booking.paymentStatus !== 'PAID' && booking.status !== 'CANCELLED' && (
                           <button type="button" className="btn my-bookings-pay-btn" disabled={!paymentAvailability.allowed} title={paymentAvailability.message} onClick={() => navigate('/user/payment-placeholder', { state: { bookingDraft: booking } })}>
                             {paymentAvailability.label}
+                          </button>
+                        )}
+                        {['RESERVED', 'ACTIVE'].includes(booking.status) && (
+                          <button
+                            type="button"
+                            className="btn my-bookings-checkin-btn"
+                            disabled={statusActionId === booking.id}
+                            onClick={() => handleStatusAction(booking, 'CHECK_IN')}
+                          >
+                            {statusActionId === booking.id ? 'Updating...' : 'Check-In'}
+                          </button>
+                        )}
+                        {booking.status === 'OCCUPIED' && (
+                          <button
+                            type="button"
+                            className="btn my-bookings-checkout-btn"
+                            disabled={statusActionId === booking.id}
+                            onClick={() => handleStatusAction(booking, 'CHECK_OUT')}
+                          >
+                            {statusActionId === booking.id ? 'Updating...' : 'Check-Out'}
                           </button>
                         )}
                         {['RESERVED', 'ACTIVE'].includes(booking.status) && (

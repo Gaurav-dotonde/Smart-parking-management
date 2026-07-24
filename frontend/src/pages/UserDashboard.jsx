@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { getUserDashboard } from '../services/userService';
+import { getMyBookings } from '../services/bookingService';
+import { unwrapList } from '../services/parkingService';
 import { useAuth } from '../context/AuthContext';
 import { formatDisplayName } from '../utils/formatDisplayName';
 
 const summaryCards = [
-  { title: 'Active Bookings', tone: 'blue', icon: 'booking' },
-  { title: 'Upcoming Bookings', tone: 'green', icon: 'car' },
-  { title: 'Completed Bookings', tone: 'purple', icon: 'calendar' },
-  { title: 'Cancelled Bookings', tone: 'amber', icon: 'payment' },
+  { title: 'Active Bookings', tone: 'blue', icon: 'booking', to: '/user/bookings?status=ACTIVE' },
+  { title: 'Upcoming Bookings', tone: 'green', icon: 'car', to: '/user/bookings?status=UPCOMING' },
+  { title: 'Completed Bookings', tone: 'purple', icon: 'calendar', to: '/user/booking-history?status=COMPLETED' },
+  { title: 'Cancelled Bookings', tone: 'amber', icon: 'payment', to: '/user/booking-history?status=CANCELLED' },
 ];
 
 const quickActions = [
@@ -86,6 +88,7 @@ function DashIcon({ name }) {
 export default function UserDashboard() {
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState(null);
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -94,14 +97,19 @@ export default function UserDashboard() {
 
     setLoading(true);
     setError('');
-    getUserDashboard()
-      .then((res) => {
+    Promise.allSettled([getUserDashboard(), getMyBookings()])
+      .then(([dashboardResult, bookingsResult]) => {
         if (!mounted) return;
-        setDashboard(res.data || null);
-      })
-      .catch((err) => {
-        if (!mounted) return;
-        setError(err.response?.data?.message || 'Failed to load dashboard data.');
+        if (dashboardResult.status === 'fulfilled') {
+          setDashboard(dashboardResult.value.data || null);
+        }
+        if (bookingsResult.status === 'fulfilled') {
+          setBookings(unwrapList(bookingsResult.value.data));
+        }
+        if (dashboardResult.status === 'rejected' && bookingsResult.status === 'rejected') {
+          const reason = bookingsResult.reason || dashboardResult.reason;
+          setError(reason?.response?.data?.message || 'Failed to load dashboard data.');
+        }
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -113,6 +121,16 @@ export default function UserDashboard() {
   }, []);
 
   const stats = useMemo(() => {
+    if (bookings.length > 0) {
+      return {
+        activeBookings: bookings.filter((booking) => ['ACTIVE', 'OCCUPIED'].includes(booking.status)).length,
+        upcomingBookings: bookings.filter((booking) => ['PENDING', 'RESERVED', 'APPROVED', 'CONFIRMED'].includes(booking.status)).length,
+        completedBookings: bookings.filter((booking) => booking.status === 'COMPLETED').length,
+        cancelledBookings: bookings.filter((booking) => booking.status === 'CANCELLED').length,
+        totalPayments: bookings.filter((booking) => booking.paymentStatus === 'PAID').length,
+        pendingPayments: bookings.filter((booking) => ['UNPAID', 'PENDING'].includes(booking.paymentStatus)).length,
+      };
+    }
     return {
       activeBookings: dashboard?.activeBookings || 0,
       upcomingBookings: dashboard?.upcomingBookings || 0,
@@ -121,7 +139,14 @@ export default function UserDashboard() {
       totalPayments: dashboard?.totalPayments || 0,
       pendingPayments: dashboard?.pendingPayments || 0,
     };
-  }, [dashboard]);
+  }, [bookings, dashboard]);
+
+  const recentBookings = useMemo(() => {
+    const source = bookings.length > 0 ? bookings : (dashboard?.recentBookings || []);
+    return source
+      .slice(0, 5)
+      .sort((first, second) => Number(first.bookingId || first.id || 0) - Number(second.bookingId || second.id || 0));
+  }, [bookings, dashboard]);
 
   const statValues = useMemo(
     () => [
@@ -147,7 +172,7 @@ export default function UserDashboard() {
 
       <section className="user-summary-grid">
         {summaryCards.map((card, index) => (
-          <article key={card.title} className={`user-summary-card tone-${card.tone}`}>
+          <NavLink key={card.title} to={card.to} className={`user-summary-card user-clickable-card tone-${card.tone}`} aria-label={`View ${card.title}`}>
             <div className="user-summary-head">
               <div className={`user-summary-icon tone-${card.tone}`}>
                 <DashIcon name={card.icon} />
@@ -162,9 +187,10 @@ export default function UserDashboard() {
                   ? 'Upcoming'
                   : index === 2
                     ? 'Finished bookings'
-                    : 'Payments made'}
+                    : 'Cancelled bookings'}
             </span>
-          </article>
+            <span className="user-card-link-hint">View details <span aria-hidden="true">→</span></span>
+          </NavLink>
         ))}
       </section>
 
@@ -185,6 +211,49 @@ export default function UserDashboard() {
             </NavLink>
           ))}
         </div>
+      </section>
+
+      <section className="user-dashboard-recent user-page-card">
+        <div className="user-section-head user-dashboard-recent-head">
+          <div>
+            <h3>Recent Bookings</h3>
+            <p>Your latest parking reservations and their current status.</p>
+          </div>
+          <NavLink to="/user/bookings" className="btn btn-secondary">View all bookings</NavLink>
+        </div>
+
+        {loading && <p className="user-dashboard-recent-state">Loading bookings...</p>}
+        {!loading && recentBookings.length === 0 && (
+          <div className="empty-state">No bookings found. Your new reservations will appear here.</div>
+        )}
+        {!loading && recentBookings.length > 0 && (
+          <div className="user-responsive-table">
+            <table className="user-dashboard-bookings-table">
+              <thead>
+                <tr>
+                  <th>Booking</th>
+                  <th>Location</th>
+                  <th>Slot</th>
+                  <th>Start time</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentBookings.map((booking) => (
+                  <tr key={booking.id}>
+                    <td><strong>#{booking.bookingId || booking.id}</strong></td>
+                    <td>{booking.lotName || booking.parkingLot || 'Parking location'}</td>
+                    <td>{booking.slotNumber || 'N/A'}</td>
+                    <td>{booking.startTime ? new Date(booking.startTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}</td>
+                    <td><span className={`user-dashboard-status status-${String(booking.status || 'unknown').toLowerCase()}`}>{booking.status || 'UNKNOWN'}</span></td>
+                    <td><NavLink to={`/bookings/${booking.id}`} className="user-dashboard-booking-link">View</NavLink></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

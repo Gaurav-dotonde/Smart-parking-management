@@ -11,6 +11,16 @@ export const cancelBooking = async (id) => {
   emitParkingDataChanged({ type: 'booking-cancelled', bookingId: id });
   return response;
 };
+export const checkInBooking = async (id) => {
+  const response = await api.put(`/bookings/${id}/check-in`);
+  emitParkingDataChanged({ type: 'booking-status', bookingId: id, action: 'CHECK_IN' });
+  return response;
+};
+export const checkOutBooking = async (id) => {
+  const response = await api.put(`/bookings/${id}/check-out`);
+  emitParkingDataChanged({ type: 'booking-status', bookingId: id, action: 'CHECK_OUT' });
+  return response;
+};
 export const getBookingById = (id) => api.get(`/bookings/${id}`);
 export const getUserBookings = (userId) => api.get(`/bookings/user/${userId}`);
 export const getMyBookings = () => api.get('/bookings/my');

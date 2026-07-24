@@ -231,7 +231,7 @@ export default function AdminUsers() {
         </div>
       </section>
 
-      <section className="card users-card">
+      <section className="card users-card admin-users-table-card">
         <div className="dashboard-section-head">
           <div><h3>Users Table</h3><p>View user records and control account-level actions.</p></div>
           <button type="button" className="btn" onClick={openCreateForm}>Create Account</button>
@@ -243,7 +243,7 @@ export default function AdminUsers() {
 
         {!loading && !error && !!filteredUsers.length && (
           <div className="dashboard-table-wrap">
-            <table className="dashboard-table">
+            <table className="dashboard-table admin-users-table">
               <thead>
                 <tr>
                   <th>User ID</th>
@@ -303,7 +303,7 @@ export default function AdminUsers() {
 
       {formMode && (
         <div className="modal-backdrop">
-          <form className="modal-card" onSubmit={submitUserForm}>
+          <form className="modal-card user-account-modal" onSubmit={submitUserForm}>
             <div className="dashboard-section-head">
               <h3>{formMode === 'create' ? 'Create Account' : 'Edit Account'}</h3>
               <button type="button" className="modal-close" aria-label="Close account form" onClick={() => setFormMode(null)}>×</button>
@@ -348,10 +348,13 @@ export default function AdminUsers() {
       )}
 
       {(detailsLoading || detailsError || selectedUser) && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
+        <div className="modal-backdrop user-details-backdrop">
+          <div className="modal-card user-details-modal">
             <div className="dashboard-section-head">
-              <h3>User Details</h3>
+              <div>
+                <h3>User Details</h3>
+                <p>Account information and recent parking activity.</p>
+              </div>
               <button type="button" className="modal-close" aria-label="Close user details" onClick={() => { setSelectedUser(null); setDetailsError(''); }}>
                 ×
               </button>

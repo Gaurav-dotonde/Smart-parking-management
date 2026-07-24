@@ -106,13 +106,14 @@ export default function UserSidebar({ open = false, onClose }) {
   };
 
   return (
-    <aside className={`user-sidebar ${open ? 'is-open' : ''}`}>
+    <aside className={`user-sidebar ${open ? 'is-open' : ''}`} aria-label="User navigation">
       <div className="user-sidebar-brand">
         <div className="user-sidebar-brand-badge">P</div>
         <div>
           <span>SMART PARKING</span>
           <strong>User Portal</strong>
         </div>
+        <button type="button" className="user-sidebar-close" aria-label="Close navigation" onClick={onClose}>×</button>
       </div>
 
       <nav className="user-sidebar-nav">

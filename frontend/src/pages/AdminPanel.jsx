@@ -14,7 +14,7 @@ import {
   unwrapPage
 } from '../services/parkingService';
 
-const vehicleTypes = ['Two Wheeler', 'Car', 'SUV', 'Commercial Vehicle'];
+const vehicleTypes = ['Two Wheeler', 'Car'];
 const slotTypes = ['STANDARD', 'COMPACT', 'LARGE', 'ACCESSIBLE', 'EV CHARGING', 'VIP'];
 const statuses = ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'MAINTENANCE', 'INACTIVE'];
 const editableStatuses = ['AVAILABLE', 'MAINTENANCE', 'INACTIVE'];
@@ -307,6 +307,15 @@ export default function AdminPanel() {
   const totalPages = slotsPage?.totalPages || 1;
   const isFirst = slotsPage?.first ?? true;
   const isLast = slotsPage?.last ?? true;
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index);
+    const visible = new Set([0, totalPages - 1, page - 1, page, page + 1]);
+    const pages = [...visible].filter((item) => item >= 0 && item < totalPages).sort((a, b) => a - b);
+    return pages.flatMap((item, index) => {
+      const previous = pages[index - 1];
+      return index > 0 && item - previous > 1 ? [`ellipsis-${previous}-${item}`, item] : [item];
+    });
+  }, [page, totalPages]);
 
   const floorSummaries = useMemo(() => {
     if (!summary?.floors) return [];
@@ -391,7 +400,11 @@ export default function AdminPanel() {
             {floorSummaries.map((floor) => (
               <article key={floor.value} className={`admin-floor-card ${filters.floor === String(floor.value) ? 'active' : ''}`} onClick={() => handleFloorSelect(floor.value === filters.floor ? '' : String(floor.value))}>
                 <div><span className="slots-floor-icon"><Icon name="parking" /></span><strong>{floor.label}</strong></div>
-                <p><b>{floor.total}</b> Total <i /> <b>{floor.available}</b> Available <i /> <b>{floor.booked}</b> Booked</p>
+                <p className="admin-floor-stats">
+                  <span><b>{floor.total}</b><small>Total</small></span>
+                  <span><b>{floor.available}</b><small>Available</small></span>
+                  <span><b>{floor.booked}</b><small>Booked</small></span>
+                </p>
               </article>
             ))}
           </section>
@@ -475,20 +488,21 @@ export default function AdminPanel() {
             )}
             {!loadingSlots && visibleSlots.length > 0 && (
               <div className="admin-pagination">
-                <label>
-                  Showing {pagedStart}–{pagedEnd} of {totalElements}
-                  <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }} style={{ marginLeft: 8 }}>
+                <div className="admin-pagination-summary">
+                  <span>Showing <strong>{pagedStart}–{pagedEnd}</strong> of <strong>{totalElements}</strong></span>
+                  <label>
+                    Rows per page
+                    <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}>
                     {pageSizes.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </label>
-                <div>
-                  <button disabled={isFirst || page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Previous</button>
-                  {Array.from({ length: totalPages }, (_, i) => i).map((p) => (
-                    <button key={p} className={page === p ? 'active' : ''} disabled={page === p} onClick={() => setPage(p)} style={page === p ? { background: '#1677e8', color: '#fff', borderColor: '#1677e8' } : {}}>
-                      {p + 1}
-                    </button>
-                  ))}
-                  <button disabled={isLast || page >= totalPages - 1} onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}>Next</button>
+                    </select>
+                  </label>
+                </div>
+                <div className="admin-pagination-controls" aria-label="Parking slot pagination">
+                  <button className="admin-pagination-nav" disabled={isFirst || page === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}>Previous</button>
+                  {paginationItems.map((item) => typeof item === 'string'
+                    ? <span className="admin-pagination-ellipsis" key={item}>…</span>
+                    : <button key={item} className={page === item ? 'active' : ''} aria-current={page === item ? 'page' : undefined} disabled={page === item} onClick={() => setPage(item)}>{item + 1}</button>)}
+                  <button className="admin-pagination-nav" disabled={isLast || page >= totalPages - 1} onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))}>Next</button>
                 </div>
               </div>
             )}
