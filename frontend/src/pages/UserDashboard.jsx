@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatDisplayName } from '../utils/formatDisplayName';
 
 const summaryCards = [
+  { title: 'Total Bookings', tone: 'blue', icon: 'booking', to: '/user/booking-history?status=ALL' },
   { title: 'Active Bookings', tone: 'blue', icon: 'booking', to: '/user/bookings?status=ACTIVE' },
   { title: 'Upcoming Bookings', tone: 'green', icon: 'car', to: '/user/bookings?status=UPCOMING' },
   { title: 'Completed Bookings', tone: 'purple', icon: 'calendar', to: '/user/booking-history?status=COMPLETED' },
@@ -123,6 +124,7 @@ export default function UserDashboard() {
   const stats = useMemo(() => {
     if (bookings.length > 0) {
       return {
+        totalBookings: bookings.length,
         activeBookings: bookings.filter((booking) => ['ACTIVE', 'OCCUPIED'].includes(booking.status)).length,
         upcomingBookings: bookings.filter((booking) => ['PENDING', 'RESERVED', 'APPROVED', 'CONFIRMED'].includes(booking.status)).length,
         completedBookings: bookings.filter((booking) => booking.status === 'COMPLETED').length,
@@ -132,6 +134,7 @@ export default function UserDashboard() {
       };
     }
     return {
+      totalBookings: dashboard?.totalBookings || bookings.length || 0,
       activeBookings: dashboard?.activeBookings || 0,
       upcomingBookings: dashboard?.upcomingBookings || 0,
       completedBookings: dashboard?.completedBookings || 0,
@@ -150,6 +153,7 @@ export default function UserDashboard() {
 
   const statValues = useMemo(
     () => [
+      stats.totalBookings,
       stats.activeBookings,
       stats.upcomingBookings,
       stats.completedBookings,
@@ -182,12 +186,14 @@ export default function UserDashboard() {
             <strong className="user-summary-value">{loading ? '...' : statValues[index]}</strong>
             <span className="user-summary-note">
               {index === 0
-                ? 'Current active'
+                ? 'All bookings'
                 : index === 1
-                  ? 'Upcoming'
+                  ? 'Current active'
                   : index === 2
-                    ? 'Finished bookings'
-                    : 'Cancelled bookings'}
+                    ? 'Upcoming'
+                    : index === 3
+                      ? 'Finished bookings'
+                      : 'Cancelled bookings'}
             </span>
             <span className="user-card-link-hint">View details <span aria-hidden="true">→</span></span>
           </NavLink>

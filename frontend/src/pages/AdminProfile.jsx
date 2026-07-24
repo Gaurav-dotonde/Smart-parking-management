@@ -79,6 +79,13 @@ export default function AdminProfile() {
     try {
       const res = await getAdminProfile();
       setProfile(res.data);
+      updateUser({
+        name: res.data.name,
+        role: res.data.role,
+        accountStatus: res.data.status,
+        profilePhoto: res.data.profilePhotoUrl || null,
+        profilePhotoUrl: res.data.profilePhotoUrl || null,
+      });
       setEditForm({
         name: res.data.name || '',
         phone: res.data.phone || '',
@@ -108,7 +115,13 @@ export default function AdminProfile() {
     try {
       const res = await updateAdminProfile(editForm);
       setProfile(res.data);
-      updateUser({ name: res.data.name });
+      updateUser({
+        name: res.data.name,
+        role: res.data.role,
+        accountStatus: res.data.status,
+        profilePhoto: res.data.profilePhotoUrl || null,
+        profilePhotoUrl: res.data.profilePhotoUrl || null,
+      });
       setProfileMessage('Profile updated successfully.');
       setIsEditModalOpen(false);
     } catch (err) {
@@ -191,6 +204,13 @@ export default function AdminProfile() {
       formData.append('photo', photoFile);
       const res = await uploadAdminProfilePhoto(formData);
       setProfile(res.data);
+      updateUser({
+        name: res.data.name,
+        role: res.data.role,
+        accountStatus: res.data.status,
+        profilePhoto: res.data.profilePhotoUrl || null,
+        profilePhotoUrl: res.data.profilePhotoUrl || null,
+      });
       setPhotoFile(null);
       setPhotoFileName('');
       if (photoPreview) {
@@ -212,6 +232,13 @@ export default function AdminProfile() {
     try {
       const res = await deleteAdminProfilePhoto();
       setProfile(res.data);
+      updateUser({
+        name: res.data.name,
+        role: res.data.role,
+        accountStatus: res.data.status,
+        profilePhoto: null,
+        profilePhotoUrl: null,
+      });
       setPhotoFile(null);
       setPhotoFileName('');
       if (photoPreview) {
