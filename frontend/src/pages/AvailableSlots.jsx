@@ -14,7 +14,7 @@ function LegendItem({ color, label }) {
 function slotTone(status) {
   if (status === 'AVAILABLE') return 'available';
   if (status === 'RESERVED') return 'reserved';
-  if (status === 'BOOKED' || status === 'OCCUPIED') return 'booked';
+  if (status === 'BOOKED' || status === 'RESERVED' || status === 'OCCUPIED') return 'booked';
   return 'blocked';
 }
 

@@ -46,17 +46,12 @@ public class AdminDashboardService {
 
     @Transactional(readOnly = true)
     public AdminDashboardResponse getDashboard() {
-        List<ParkingLot> lots = parkingLotRepository.findAll();
+        List<ParkingLot> lots = parkingLotRepository.findByActiveTrueAndArchivedFalseOrderByCreatedAtDesc();
         List<ParkingSlot> slots = parkingSlotRepository.findAll().stream()
                 .filter(slot -> !Boolean.TRUE.equals(slot.getArchived()))
                 .toList();
         List<Booking> bookings = bookingRepository.findAllByOrderByCreatedAtDesc();
         List<User> users = userRepository.findAllByArchivedFalseOrderByCreatedAtDesc();
-
-        Map<SlotStatus, Long> slotCounts = slots.stream()
-                .collect(Collectors.groupingBy(slot -> slot.getStatus(), Collectors.counting()));
-        Map<BookingStatus, Long> bookingCounts = bookings.stream()
-                .collect(Collectors.groupingBy(booking -> booking.getStatus(), Collectors.counting()));
 
         Set<String> vehicles = new java.util.HashSet<>();
         vehicleRepository.findAllByArchivedFalseOrderByCreatedAtDesc().stream()
@@ -75,22 +70,11 @@ public class AdminDashboardService {
                 .forEach(vehicleNumber -> vehicles.add(vehicleNumber));
 
         LocalDate today = LocalDate.now();
-        long todayBookings = bookings.stream()
-                .filter(booking -> booking.getStartTime() != null && booking.getStartTime().toLocalDate().equals(today))
-                .count();
+        java.time.LocalDateTime dayStart = today.atStartOfDay();
+        long todayBookings = bookingRepository.countByStartTimeBetween(dayStart, dayStart.plusDays(1));
 
         List<com.parking.model.Payment> paymentRecords = paymentRepository.findAllByOrderByCreatedAtDesc();
-        BigDecimal totalRevenue = paymentRecords.isEmpty() ? bookings.stream()
-                .filter(booking -> booking.getPaymentStatus() == PaymentStatus.PAID)
-                .map(booking -> booking.getAmount())
-                .filter(amount -> amount != null)
-                .map(amount -> BigDecimal.valueOf(amount.doubleValue()))
-                .reduce(BigDecimal.ZERO, (total, amount) -> total.add(amount))
-                .setScale(2, RoundingMode.HALF_UP) : paymentRecords.stream()
-                .filter(payment -> payment.getStatus() == PaymentStatus.PAID || payment.getStatus() == PaymentStatus.PARTIALLY_REFUNDED)
-                .map(payment -> payment.getAmount().subtract(payment.getRefundAmount() == null ? BigDecimal.ZERO : payment.getRefundAmount()))
-                .reduce(BigDecimal.ZERO, (total, amount) -> total.add(amount))
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalRevenue = paymentRepository.calculateNetRevenue().setScale(2, RoundingMode.HALF_UP);
 
         List<AdminBookingResponse> recentBookings = bookings.stream()
                 .limit(RECENT_LIMIT)
@@ -148,20 +132,21 @@ public class AdminDashboardService {
                 new AdminDashboardResponse.RevenuePoint(date, amount.setScale(2, RoundingMode.HALF_UP))));
 
         return new AdminDashboardResponse(
-                lots.size(), slots.size(),
-                slotCounts.getOrDefault(SlotStatus.AVAILABLE, 0L),
-                slotCounts.getOrDefault(SlotStatus.BOOKED, 0L),
-                slotCounts.getOrDefault(SlotStatus.RESERVED, 0L),
-                slotCounts.getOrDefault(SlotStatus.OCCUPIED, 0L),
-                slotCounts.getOrDefault(SlotStatus.MAINTENANCE, 0L),
-                slotCounts.getOrDefault(SlotStatus.DISABLED, 0L),
-                users.stream().filter(user -> user.getRole() == Role.USER).count(),
-                vehicles.size(),
-                bookingCounts.getOrDefault(BookingStatus.ACTIVE, 0L) + bookingCounts.getOrDefault(BookingStatus.PENDING, 0L)
-                        + bookingCounts.getOrDefault(BookingStatus.APPROVED, 0L) + bookingCounts.getOrDefault(BookingStatus.RESERVED, 0L)
-                        + bookingCounts.getOrDefault(BookingStatus.OCCUPIED, 0L),
-                bookingCounts.getOrDefault(BookingStatus.COMPLETED, 0L),
-                bookingCounts.getOrDefault(BookingStatus.CANCELLED, 0L),
+                parkingLotRepository.countByActiveTrueAndArchivedFalse(),
+                parkingSlotRepository.countByArchivedFalse(),
+                parkingSlotRepository.countCurrentlyBookable(java.time.LocalDateTime.now(),
+                        List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE, BookingStatus.OCCUPIED)),
+                bookingRepository.countByStatusIn(List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE)),
+                bookingRepository.countByStatus(BookingStatus.RESERVED),
+                parkingSlotRepository.countByArchivedFalseAndStatus(SlotStatus.OCCUPIED),
+                parkingSlotRepository.countByArchivedFalseAndStatus(SlotStatus.MAINTENANCE),
+                parkingSlotRepository.countByArchivedFalseAndStatus(SlotStatus.INACTIVE)
+                        + parkingSlotRepository.countByArchivedFalseAndStatus(SlotStatus.DISABLED),
+                userRepository.countByRoleAndArchivedFalse(Role.USER),
+                vehicleRepository.countByArchivedFalseAndActiveTrue(),
+                bookingRepository.countByStatusIn(List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE, BookingStatus.OCCUPIED)),
+                bookingRepository.countByStatus(BookingStatus.COMPLETED),
+                bookingRepository.countByStatus(BookingStatus.CANCELLED),
                 todayBookings, totalRevenue, recentBookings, recentUsers, recentPayments, occupancy, revenueOverview);
     }
 
@@ -172,7 +157,9 @@ public class AdminDashboardService {
                 booking.getSlot().getFloor(), booking.getVehicleNumber(), booking.getStartTime(), booking.getEndTime(),
                 booking.getStatus().name(),
                 booking.getPaymentStatus() == null ? PaymentStatus.UNPAID.name() : booking.getPaymentStatus().name(),
-                booking.getAmount());
+                booking.getAmount(), booking.getCheckedInAt(), booking.getCheckedOutAt(),
+                Boolean.TRUE.equals(booking.getOverstay()), Boolean.TRUE.equals(booking.getExtended()),
+                booking.getExtensionCount() == null ? 0 : booking.getExtensionCount(), "");
     }
 
     private String normalizeVehicle(String value) {

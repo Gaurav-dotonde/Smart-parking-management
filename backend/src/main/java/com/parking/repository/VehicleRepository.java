@@ -10,5 +10,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     boolean existsByRegistrationNormalized(String registrationNormalized);
     boolean existsByRegistrationNormalizedAndIdNot(String registrationNormalized, Long id);
     long countByArchivedFalse();
+    long countByArchivedFalseAndActiveTrue();
     Optional<Vehicle> findByRegistrationNormalized(String registrationNormalized);
+    List<Vehicle> findByOwnerIdAndArchivedFalseOrderByCreatedAtDesc(Long ownerId);
 }

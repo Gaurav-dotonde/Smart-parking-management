@@ -1,5 +1,7 @@
 package com.parking.model;
 
 public enum SlotStatus {
-    AVAILABLE, BOOKED, OCCUPIED, RESERVED, MAINTENANCE, DISABLED
+    AVAILABLE, RESERVED, OCCUPIED, MAINTENANCE, INACTIVE,
+    // Legacy values retained so existing databases can be migrated safely.
+    BOOKED, DISABLED
 }

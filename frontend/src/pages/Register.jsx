@@ -79,7 +79,6 @@ export default function Register() {
     name: '',
     email: '',
     phone: '',
-    vehicleNumber: '',
     password: '',
     confirmPassword: '',
   });
@@ -130,7 +129,6 @@ export default function Register() {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
-        vehicleNumber: form.vehicleNumber.trim(),
       });
       setSuccess('Account created successfully. Please login.');
       setTimeout(() => navigate('/login', { replace: true }), 900);
@@ -180,13 +178,17 @@ export default function Register() {
           {success && <p className="auth-register-success">{success}</p>}
           {error && <p className="error-text auth-login-error">{error}</p>}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} autoComplete="off">
+            <input className="auth-autofill-trap" type="text" name="username" autoComplete="username" tabIndex="-1" aria-hidden="true" />
+            <input className="auth-autofill-trap" type="password" name="password" autoComplete="current-password" tabIndex="-1" aria-hidden="true" />
             <div className="auth-field-block">
               <label>Full Name</label>
               <div className="auth-input-group">
                 <div className="auth-input-icon"><FieldIcon type="user" /></div>
                 <input
                   type="text"
+                  name="registration_full_name"
+                  autoComplete="off"
                   required
                   placeholder="Enter your full name"
                   value={form.name}
@@ -201,6 +203,8 @@ export default function Register() {
                 <div className="auth-input-icon"><FieldIcon type="email" /></div>
                 <input
                   type="email"
+                  name="registration_email"
+                  autoComplete="one-time-code"
                   required
                   placeholder="Enter your email"
                   value={form.email}
@@ -215,23 +219,13 @@ export default function Register() {
                 <div className="auth-input-icon"><FieldIcon type="phone" /></div>
                 <input
                   type="tel"
+                  name="registration_phone"
+                  autoComplete="off"
                   required
                   placeholder="Enter your phone number"
+                  maxLength={10}
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="auth-field-block">
-              <label>Vehicle Number</label>
-              <div className="auth-input-group">
-                <div className="auth-input-icon"><FieldIcon type="car" /></div>
-                <input
-                  type="text"
-                  placeholder="Optional"
-                  value={form.vehicleNumber}
-                  onChange={(e) => setForm({ ...form, vehicleNumber: e.target.value })}
                 />
               </div>
             </div>
@@ -242,6 +236,8 @@ export default function Register() {
                 <div className="auth-input-icon"><FieldIcon type="password" /></div>
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="registration_new_password"
+                  autoComplete="new-password"
                   required
                   minLength={8}
                   placeholder="Create a password"
@@ -265,6 +261,8 @@ export default function Register() {
                 <div className="auth-input-icon"><FieldIcon type="password" /></div>
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
+                  name="registration_confirm_password"
+                  autoComplete="new-password"
                   required
                   minLength={8}
                   placeholder="Confirm your password"

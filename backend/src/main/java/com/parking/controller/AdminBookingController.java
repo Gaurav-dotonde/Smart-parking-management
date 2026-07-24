@@ -1,6 +1,10 @@
 package com.parking.controller;
 
 import com.parking.dto.AdminBookingResponse;
+import com.parking.dto.BookingExtensionRequest;
+import com.parking.dto.BookingExtensionResponse;
+import com.parking.model.ExtendedBy;
+import jakarta.validation.Valid;
 import com.parking.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -41,4 +45,9 @@ public class AdminBookingController {
 
     @PutMapping("/{id}/complete")
     public AdminBookingResponse complete(@PathVariable Long id) { return bookingService.transitionAsAdmin(id, "COMPLETE"); }
+
+    @PostMapping("/{id}/extend")
+    public BookingExtensionResponse extend(@PathVariable Long id, @Valid @RequestBody BookingExtensionRequest request) {
+        return bookingService.extendBooking(null, id, request, ExtendedBy.ADMIN);
+    }
 }

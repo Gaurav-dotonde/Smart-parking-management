@@ -6,6 +6,7 @@ import com.parking.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service @RequiredArgsConstructor
@@ -23,11 +24,20 @@ public class PaymentService {
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new IllegalStateException("A cancelled booking cannot be paid.");
         }
+        LocalDateTime now = LocalDateTime.now();
+        if (booking.getStartTime().toLocalDate().isAfter(LocalDate.now())) {
+            throw new IllegalStateException(
+                "Payment will be available on the parking date before the parking start time."
+            );
+        }
+        if (!now.isBefore(booking.getStartTime())) {
+            throw new IllegalStateException("Payment is closed because the parking start time has passed.");
+        }
         Payment payment = payments.findFirstByBookingIdOrderByCreatedAtDesc(bookingId)
             .orElseThrow(() -> new IllegalArgumentException("Payment record not found."));
         if (payment.getStatus() == PaymentStatus.PAID) return response(payment);
         payment.setStatus(PaymentStatus.PAID);
-        payment.setPaymentDate(LocalDateTime.now());
+        payment.setPaymentDate(now);
         booking.setPaymentStatus(PaymentStatus.PAID);
         bookings.save(booking);
         return response(payments.save(payment));

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getMyBookings } from '../services/bookingService';
 
 function StatCard({ tone, label, value, subtext, icon }) {
@@ -51,6 +52,7 @@ function statusTone(status) {
 }
 
 export default function BookingHistory() {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,6 +83,7 @@ export default function BookingHistory() {
   const filteredBookings = useMemo(() => {
     return bookings
       .slice()
+      .filter((booking) => ['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(booking.status))
       .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
   }, [bookings]);
 
@@ -137,7 +140,7 @@ export default function BookingHistory() {
                   <th>Booking ID</th>
                   <th>Location</th>
                   <th>Slot Details</th>
-                  <th>Time</th>
+                  <th>Booking Date</th>
                   <th>Amount</th>
                   <th>Status</th>
                   <th>Action</th>
@@ -163,12 +166,7 @@ export default function BookingHistory() {
                       <Badge tone="green">{booking.slotNumber || 'N/A'}</Badge>
                       <div className="booking-history-subline">Parking slot</div>
                     </td>
-                    <td>
-                      <div>{formatDate(booking.startTime)}</div>
-                      <div className="booking-history-subline">
-                        {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
-                      </div>
-                    </td>
+                    <td>{formatDate(booking.startTime)}</td>
                     <td>
                       <strong className="booking-history-amount">{formatCurrency(booking.amount)}</strong>
                       <div className="booking-history-subline">Derived from booking total</div>
@@ -177,7 +175,7 @@ export default function BookingHistory() {
                       <Badge tone={statusTone(booking.status)}>{booking.status || 'UNKNOWN'}</Badge>
                     </td>
                     <td>
-                      <button type="button" className="btn btn-secondary booking-history-view-btn">
+                      <button type="button" className="btn btn-secondary booking-history-view-btn" onClick={() => navigate(`/bookings/${booking.id}`)}>
                         View
                       </button>
                     </td>

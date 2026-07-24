@@ -21,8 +21,23 @@ export const cancelAdminBooking = async (id) => {
   emitParkingDataChanged({ type: 'booking-cancelled', bookingId: id });
   return response;
 };
+export const bookSlotsBatch = async (data) => {
+  const response = await api.post('/bookings/book-batch', data);
+  emitParkingDataChanged({ type: 'booking-batch-created', bookings: response.data });
+  return response;
+};
 export const transitionAdminBooking = async (id, action) => {
   const response = await api.put(`/admin/bookings/${id}/${action}`);
   emitParkingDataChanged({ type: 'booking-status', bookingId: id, action });
+  return response;
+};
+export const extendBooking = async (id, data) => {
+  const response = await api.post(`/bookings/${id}/extend`, data);
+  emitParkingDataChanged({ type: 'booking-extended', bookingId: id });
+  return response;
+};
+export const extendAdminBooking = async (id, data) => {
+  const response = await api.post(`/admin/bookings/${id}/extend`, data);
+  emitParkingDataChanged({ type: 'booking-extended', bookingId: id });
   return response;
 };

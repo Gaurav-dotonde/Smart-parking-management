@@ -8,25 +8,24 @@ const stats = [
   { label: 'Parking Locations', key: 'totalParkingLocations', tone: 'location', icon: '⌂', description: 'Manage parking locations', to: '/admin/lots', trend: 'Live' },
   { label: 'Total Slots', key: 'totalParkingSlots', tone: 'slot', icon: '▦', description: 'View all parking slots', to: '/admin/slots' },
   { label: 'Available Slots', key: 'availableSlots', tone: 'available', icon: '✓', description: 'Ready for new bookings', to: '/admin/slots?status=AVAILABLE' },
-  { label: 'Booked Slots', key: 'bookedSlots', tone: 'booked', icon: '▣', description: 'Review booked slot records', to: '/admin/bookings?status=BOOKED' },
-  { label: 'Reserved Slots', key: 'reservedSlots', tone: 'reserved', icon: '◇', description: 'Review reserved bookings', to: '/admin/bookings?status=RESERVED' },
-  { label: 'Occupied Slots', key: 'occupiedSlots', tone: 'occupied', icon: '●', description: 'View occupied parking slots', to: '/admin/slots?status=OCCUPIED' },
+  { label: 'Upcoming/Booked', key: 'bookedSlots', tone: 'booked', icon: '▣', description: 'Reserved and active bookings', to: '/admin/bookings?status=ACTIVE_STATUSES' },
+  { label: 'Reserved Slots', key: 'reservedSlots', tone: 'reserved', icon: '◇', description: 'Future confirmed reservations', to: '/admin/bookings?status=RESERVED' },
+  { label: 'Occupied Slots', key: 'occupiedSlots', tone: 'occupied', icon: '●', description: 'Current parked vehicles', to: '/admin/bookings?status=OCCUPIED' },
   { label: 'Maintenance', key: 'maintenanceSlots', tone: 'maintenance', icon: '⚒', description: 'Review maintenance slots', to: '/admin/slots?status=MAINTENANCE' },
-  { label: 'Disabled', key: 'disabledSlots', tone: 'disabled', icon: '⊘', description: 'View disabled parking slots', to: '/admin/slots?status=DISABLED' },
   { label: 'Users', key: 'totalUsers', tone: 'users', icon: '♙', description: 'Manage registered users', to: '/admin/users' },
-  { label: 'Vehicles', key: 'totalVehicles', tone: 'vehicles', icon: '▰', description: 'Manage vehicle records', to: '/admin/vehicles' },
-  { label: 'Active Bookings', key: 'activeBookings', tone: 'active', icon: '◷', description: 'View active booking activity', to: '/admin/bookings?status=ACTIVE' },
+  { label: 'Vehicles', key: 'totalVehicles', tone: 'vehicles', icon: '▰', description: 'Manage active vehicle records', to: '/admin/vehicles' },
+  { label: 'Active Bookings', key: 'activeBookings', tone: 'active', icon: '◷', description: 'Reserved, active and occupied', to: '/admin/bookings?status=ACTIVE_STATUSES' },
   { label: 'Completed Bookings', key: 'completedBookings', tone: 'completed', icon: '✓', description: 'Review completed bookings', to: '/admin/bookings?status=COMPLETED' },
   { label: 'Cancelled Bookings', key: 'cancelledBookings', tone: 'cancelled', icon: '×', description: 'Review cancelled bookings', to: '/admin/bookings?status=CANCELLED' },
-  { label: "Today's Bookings", key: 'todayBookings', tone: 'today', icon: '◫', description: 'View bookings created today', to: '/admin/bookings?date=today', trend: 'Today' },
-  { label: 'Revenue', key: 'totalRevenue', tone: 'revenue', icon: '₹', description: 'Review payment activity', to: '/admin/payments' },
-  { label: 'Reports', key: 'totalParkingLocations', tone: 'reports', icon: '▤', description: 'Open operational reports', to: '/admin/reports' },
+  { label: "Today's Bookings", key: 'todayBookings', tone: 'today', icon: '◫', description: 'Bookings scheduled to start today', to: '/admin/bookings?date=today', trend: 'Today' },
+  { label: 'Revenue', key: 'totalRevenue', tone: 'revenue', icon: '₹', description: 'Paid net of refunds', to: '/admin/payments' },
+  { label: 'Reports', key: 'reportsNavigation', tone: 'reports', icon: '▤', description: 'Open operational reports', to: '/admin/reports' },
 ];
 
 const slotKeys = [
   ['Available', 'availableSlots', '#18a66a'], ['Booked', 'bookedSlots', '#6757d9'],
   ['Reserved', 'reservedSlots', '#e49a21'], ['Occupied', 'occupiedSlots', '#1677e8'],
-  ['Maintenance', 'maintenanceSlots', '#7c8798'], ['Disabled', 'disabledSlots', '#e05260'],
+  ['Maintenance', 'maintenanceSlots', '#7c8798'],
 ];
 
 const bookingKeys = [
@@ -89,8 +88,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true);
+  const loadDashboard = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const response = await getAdminDashboard();
@@ -113,9 +112,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadDashboard();
-    const unsubscribe = onParkingDataChanged(loadDashboard);
-    window.addEventListener('focus', loadDashboard);
-    return () => { unsubscribe(); window.removeEventListener('focus', loadDashboard); };
+    const refresh = () => loadDashboard(true);
+    const unsubscribe = onParkingDataChanged(refresh);
+    const interval = window.setInterval(refresh, 60000);
+    window.addEventListener('focus', refresh);
+    return () => { unsubscribe(); window.clearInterval(interval); window.removeEventListener('focus', refresh); };
   }, [loadDashboard]);
 
   const maxRevenue = useMemo(() => Math.max(1, ...(data?.revenueOverview || []).map((point) => Number(point.amount || 0))), [data]);
@@ -131,7 +132,7 @@ export default function AdminDashboard() {
         {stats.map(({ label, key, tone, icon, description, to, trend }) => <button type="button" className={`admin-dashboard-stat ${tone}`} key={label} onClick={() => navigate(to)} aria-label={`${label}: ${data[key]}. View details`}>
           <span className="admin-stat-symbol" aria-hidden="true">{icon}</span>
           {trend && <span className="admin-stat-trend">{trend}</span>}
-          <span className="admin-stat-content"><small>{label}</small><strong>{key === 'totalRevenue' ? money(data[key]) : data[key]}</strong><em>{description}</em></span>
+          <span className="admin-stat-content"><small>{label}</small><strong>{key === 'reportsNavigation' ? 'Open Reports' : key === 'totalRevenue' ? money(data[key]) : data[key]}</strong><em>{description}</em></span>
           <span className="admin-stat-hint">Click to view details <b aria-hidden="true">→</b></span>
         </button>)}
       </section>
@@ -157,7 +158,7 @@ export default function AdminDashboard() {
       </div>
 
       <section className="admin-dashboard-panel admin-wide-table"><header><h3>Recent bookings</h3><p>Latest booking activity</p></header>
-        {!data.recentBookings.length ? <Empty text="No bookings have been created yet." /> : <div className="admin-responsive-table"><table><thead><tr><th>ID</th><th>User</th><th>Location / Slot</th><th>Vehicle</th><th>Start</th><th>Status</th></tr></thead><tbody>{data.recentBookings.map((item) => <tr key={item.id}><td>#{item.id}</td><td>{formatDisplayName(item.userName, 'User')}<small>{item.email}</small></td><td>{item.parkingLot}<small>{item.slotNumber}</small></td><td>{item.vehicleNumber || 'N/A'}</td><td>{dateTime(item.startTime)}</td><td><span className={`admin-status ${(item.bookingStatus || 'pending').toLowerCase()}`}>{item.bookingStatus || 'PENDING'}</span></td></tr>)}</tbody></table></div>}
+        {!data.recentBookings.length ? <Empty text="No bookings have been created yet." /> : <div className="admin-responsive-table"><table><thead><tr><th>ID</th><th>User</th><th>Location / Slot</th><th>Vehicle</th><th>Booking Date</th><th>Status</th></tr></thead><tbody>{data.recentBookings.map((item) => <tr key={item.id}><td>#{item.id}</td><td>{formatDisplayName(item.userName, 'User')}<small>{item.email}</small></td><td>{item.parkingLot}<small>{item.slotNumber}</small></td><td>{item.vehicleNumber || 'N/A'}</td><td>{item.startTime ? new Date(item.startTime).toLocaleDateString() : 'N/A'}</td><td><span className={`admin-status ${(item.bookingStatus || 'pending').toLowerCase()}`}>{item.bookingStatus || 'PENDING'}</span></td></tr>)}</tbody></table></div>}
       </section>
 
       <div className="admin-dashboard-grid three">

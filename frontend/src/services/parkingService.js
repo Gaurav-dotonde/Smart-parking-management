@@ -6,7 +6,9 @@ const emitChange = (type, payload = {}) => emitParkingDataChanged({ type, ...pay
 export const getAllLots = () => api.get('/lots');
 export const getActiveLots = () => api.get('/lots/active');
 export const getLotById = (id) => api.get(`/lots/${id}`);
-export const getSlots = (lotId) => api.get(`/lots/${lotId}/slots`);
+export const getSlots = (lotId, startTime, endTime) => api.get(`/lots/${lotId}/slots`, {
+  params: startTime && endTime ? { startTime, endTime } : {},
+});
 export const getAdminSlots = (lotId) => api.get(`/lots/${lotId}/slots/admin`);
 export const getAllAdminSlots = () => api.get('/admin/parking-slots');
 export const getAdminSlot = (slotId) => api.get(`/admin/parking-slots/${slotId}`);

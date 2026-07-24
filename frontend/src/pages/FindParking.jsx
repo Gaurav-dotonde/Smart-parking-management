@@ -7,29 +7,36 @@ const floorName = (floor) => `${ordinalFloorNames[floor] || `Floor ${floor}`} Fl
 
 const initialForm = {
   date: '',
-  startTime: '',
-  startPeriod: 'AM',
-  endTime: '',
-  endPeriod: 'AM',
-  lotId: '',
+  lotId: 'all',
   vehicleType: '',
   floor: '',
 };
-
-function to24HourTime(time, period) {
-  if (!time) return '';
-  const [hourValue, minute = '00'] = time.split(':');
-  const hour = Number(hourValue);
-  if (!Number.isInteger(hour) || hour < 1 || hour > 12) return '';
-  const hour24 = (hour % 12) + (period === 'PM' ? 12 : 0);
-  return `${String(hour24).padStart(2, '0')}:${minute}`;
-}
 
 function getLocalDateValue(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function bookingWindow(dateValue) {
+  const selectedDate = new Date(`${dateValue}T00:00:00`);
+  const now = new Date();
+  const start = selectedDate.toDateString() === now.toDateString()
+    ? new Date(now.getTime() + 5 * 60 * 1000)
+    : selectedDate;
+  const end = new Date(`${dateValue}T23:59:00`);
+  return {
+    start: localDateTime(start),
+    end: localDateTime(end),
+    startTime: localDateTime(start).slice(11),
+    endTime: localDateTime(end).slice(11),
+  };
+}
+
+function localDateTime(date) {
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
 function formatDuration(minutes) {
@@ -100,26 +107,8 @@ export default function FindParking() {
   const today = useMemo(() => getLocalDateValue(), []);
 
   const validate = () => {
-    if (!form.lotId || !form.date || !form.startTime || !form.endTime || !form.vehicleType || !form.floor) {
+    if (!form.lotId || !form.date || !form.vehicleType || !form.floor) {
       return 'Please fill all required fields.';
-    }
-
-    const startTime = to24HourTime(form.startTime, form.startPeriod);
-    const endTime = to24HourTime(form.endTime, form.endPeriod);
-    if (!startTime || !endTime) {
-      return 'Please enter times from 01:00 to 12:59 and select AM or PM.';
-    }
-
-    const start = new Date(`${form.date}T${startTime}`);
-    const end = new Date(`${form.date}T${endTime}`);
-    const now = new Date();
-
-    if (end <= start) {
-      return 'End Time must be greater than Start Time.';
-    }
-
-    if (start < now || end < now) {
-      return 'Past date and time are not allowed.';
     }
 
     return '';
@@ -140,8 +129,7 @@ export default function FindParking() {
     setLoading(true);
     setHasSearched(true);
     try {
-      const startTime = to24HourTime(form.startTime, form.startPeriod);
-      const endTime = to24HourTime(form.endTime, form.endPeriod);
+      const { startTime, endTime } = bookingWindow(form.date);
       const res = await findParking({
         date: form.date,
         startTime,
@@ -170,10 +158,11 @@ export default function FindParking() {
   };
 
   const handleBookNow = (slot) => {
+    const { start, end } = bookingWindow(form.date);
     const params = new URLSearchParams({
       slotId: String(slot.slotId),
-      start: `${form.date}T${to24HourTime(form.startTime, form.startPeriod)}`,
-      end: `${form.date}T${to24HourTime(form.endTime, form.endPeriod)}`,
+      start,
+      end,
       vehicleType: form.vehicleType === 'All' ? (slot.vehicleType || 'Car') : form.vehicleType,
     });
     navigate(`/lots/${slot.lotId}?${params.toString()}`);
@@ -198,11 +187,11 @@ export default function FindParking() {
       <section className="user-page-card find-parking-hero">
         <div className="find-parking-hero-copy">
           <p className="find-parking-kicker">Search available parking slots for your visit.</p>
-          <p className="find-parking-hero-subtext">Choose date, time, vehicle type, and floor to see live availability.</p>
+          <p className="find-parking-hero-subtext">Choose date, vehicle type, and floor to see live availability.</p>
         </div>
         <div className="find-parking-hero-chip">
           <span className="find-parking-hero-chip-label">Search Filters</span>
-          <span className="find-parking-hero-chip-value">Location, date, time, type and floor</span>
+          <span className="find-parking-hero-chip-value">Location, date, type and floor</span>
         </div>
       </section>
 
@@ -223,7 +212,6 @@ export default function FindParking() {
                 value={form.lotId}
                 onChange={(e) => handleLocationChange(e.target.value)}
               >
-                <option value="" disabled>Select Location</option>
                 <option value="all">All Locations</option>
                 {parkingLots.map((lot) => (
                   <option key={lot.id} value={lot.id}>
@@ -242,52 +230,11 @@ export default function FindParking() {
               />
             </div>
             <div className="form-group">
-              <label>Start Time</label>
-              <div className="find-parking-time-field">
-                <input
-                  type="time"
-                  min="01:00"
-                  max="12:59"
-                  value={form.startTime}
-                  onChange={(e) => handleFilterChange('startTime', e.target.value)}
-                />
-                <select
-                  aria-label="Start time AM or PM"
-                  value={form.startPeriod}
-                  onChange={(e) => handleFilterChange('startPeriod', e.target.value)}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-group">
-              <label>End Time</label>
-              <div className="find-parking-time-field">
-                <input
-                  type="time"
-                  min="01:00"
-                  max="12:59"
-                  value={form.endTime}
-                  onChange={(e) => handleFilterChange('endTime', e.target.value)}
-                />
-                <select
-                  aria-label="End time AM or PM"
-                  value={form.endPeriod}
-                  onChange={(e) => handleFilterChange('endPeriod', e.target.value)}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-group">
               <label>Vehicle Type</label>
               <select
                 value={form.vehicleType}
                 onChange={(e) => handleFilterChange('vehicleType', e.target.value)}
               >
-                <option value="" disabled>Select Vehicle Type</option>
                 <option value="All">All Vehicle Types</option>
                 <option value="Car">Car</option>
                 <option value="Two Wheeler">Two Wheeler</option>

@@ -45,7 +45,7 @@ public class ParkingSlotLayoutMigrationService {
             if (!active.contains(slot) && !Boolean.TRUE.equals(slot.getArchived())) {
                 slot.setArchived(true);
                 slot.setArchivedAt(LocalDateTime.now());
-                slot.setStatus(SlotStatus.DISABLED);
+                slot.setStatus(SlotStatus.INACTIVE);
             }
         }
 
@@ -85,7 +85,7 @@ public class ParkingSlotLayoutMigrationService {
         lot.setReservedSlots(statusCount(lotId, SlotStatus.RESERVED));
         lot.setOccupiedSlots(statusCount(lotId, SlotStatus.OCCUPIED));
         lot.setMaintenanceSlots(statusCount(lotId, SlotStatus.MAINTENANCE));
-        lot.setDisabledSlots(statusCount(lotId, SlotStatus.DISABLED));
+        lot.setDisabledSlots(statusCount(lotId, SlotStatus.INACTIVE));
         parkingLotRepository.save(lot);
 
         return response(lot, before, normalized.size());

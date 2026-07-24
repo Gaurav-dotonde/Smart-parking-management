@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface ParkingSlotRepository extends JpaRepository<ParkingSlot, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<ParkingSlot> {
 
@@ -23,6 +24,20 @@ public interface ParkingSlotRepository extends JpaRepository<ParkingSlot, Long>,
     long countByParkingLotIdAndArchivedFalse(Long lotId);
 
     long countByParkingLotIdAndArchivedFalseAndStatus(Long lotId, SlotStatus status);
+    long countByArchivedFalse();
+    long countByArchivedFalseAndStatus(SlotStatus status);
+
+    @Query("""
+        select count(s) from ParkingSlot s
+        where s.archived = false and s.status = com.parking.model.SlotStatus.AVAILABLE
+          and not exists (
+            select b.id from Booking b
+            where b.slot = s
+              and b.status in :activeStatuses
+              and b.startTime <= :now and b.endTime > :now
+          )
+        """)
+    long countCurrentlyBookable(@Param("now") LocalDateTime now, @Param("activeStatuses") List<com.parking.model.BookingStatus> activeStatuses);
 
     boolean existsByParkingLotIdAndSlotNumberIgnoreCase(Long lotId, String slotNumber);
 

@@ -1,0 +1,36 @@
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+application-local.properties
+application-*.local.properties
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+build/
+
+# Backend build output
+target/
+*.class
+
+# Runtime files
+logs/
+*.log
+uploads/
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Secrets and private key material
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+credentials*.json
+secrets*.json
