@@ -325,8 +325,8 @@ export default function AdminUsers() {
       </section>
 
       {formMode && (
-        <div className="modal-backdrop">
-          <form className="modal-card user-account-modal" onSubmit={submitUserForm}>
+        <div className="modal-backdrop user-account-backdrop">
+          <form className="modal-card user-account-modal" onSubmit={submitUserForm} autoComplete="off">
             <div className="dashboard-section-head">
               <h3>{formMode === 'create' ? 'Create Account' : 'Edit Account'}</h3>
               <button type="button" className="modal-close" aria-label="Close account form" onClick={() => setFormMode(null)}>×</button>
@@ -338,15 +338,15 @@ export default function AdminUsers() {
               </div>
               <div className="form-group">
                 <label>Email</label>
-                <input required type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
+                <input required type="email" name="admin-user-email" autoComplete="off" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
               </div>
               <div className="form-group">
                 <label>Phone</label>
-                <input pattern="[0-9]{10}" value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} />
+                <input maxLength={10} pattern="[0-9]{10}" value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} />
               </div>
               <div className="form-group">
                 <label>{formMode === 'create' ? 'Password' : 'New Password (optional)'}</label>
-                <input required={formMode === 'create'} minLength="8" type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} />
+                <input required={formMode === 'create'} minLength="8" type="password" name="admin-user-password" autoComplete="new-password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} />
               </div>
               <div className="form-group">
                 <label>Role</label>
@@ -386,6 +386,12 @@ export default function AdminUsers() {
             {!detailsLoading && detailsError && <div className="error-text">{detailsError}</div>}
             {!detailsLoading && selectedUser && (
               <>
+                {(() => {
+                  const recentBookings = [...(selectedUser.recentBookings || [])].sort(
+                    (a, b) => Number(a.bookingId || 0) - Number(b.bookingId || 0),
+                  );
+                  return (
+                    <>
                 <div className="booking-details-grid">
                   <div><strong>Name:</strong> {formatDisplayName(selectedUser.name, 'User')}</div>
                   <div><strong>Email:</strong> {selectedUser.email}</div>
@@ -398,8 +404,8 @@ export default function AdminUsers() {
                 <div className="dashboard-section-head details-subhead">
                   <h3>Recent Bookings</h3>
                 </div>
-                {!selectedUser.recentBookings?.length && <div className="empty-state">No recent bookings.</div>}
-                {!!selectedUser.recentBookings?.length && (
+                {!recentBookings.length && <div className="empty-state">No recent bookings.</div>}
+                {!!recentBookings.length && (
                   <div className="dashboard-table-wrap">
                     <table className="dashboard-table">
                       <thead>
@@ -413,7 +419,7 @@ export default function AdminUsers() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedUser.recentBookings.map((booking) => (
+                        {recentBookings.map((booking) => (
                           <tr key={booking.bookingId}>
                             <td>{booking.bookingId}</td>
                             <td>{booking.slotNumber}</td>
@@ -427,6 +433,9 @@ export default function AdminUsers() {
                     </table>
                   </div>
                 )}
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>

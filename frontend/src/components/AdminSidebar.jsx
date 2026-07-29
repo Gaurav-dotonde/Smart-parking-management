@@ -10,7 +10,7 @@ const items = [
   { label: 'Users', to: '/admin/users', icon: 'users' },
   { label: 'Vehicles', to: '/admin/vehicles', icon: 'vehicles' },
   { label: 'Payments', to: '/admin/payments', icon: 'payments' },
-  { label: 'Support', to: '/admin/support', icon: 'support' },
+  { label: 'Support Tickets', to: '/admin/support', icon: 'support' },
   { label: 'Reports', to: '/admin/reports', icon: 'reports' },
   { label: 'Admin Profile', to: '/admin/profile', icon: 'profile' },
 ];

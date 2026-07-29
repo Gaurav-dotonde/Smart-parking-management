@@ -17,7 +17,7 @@ const routeTitles = {
   '/admin/users': ['Users', 'Manage registered users and account access.'],
   '/admin/vehicles': ['Vehicles', 'Manage registered vehicles and their owners.'],
   '/admin/payments': ['Payments', 'Review payment records, verification and refunds.'],
-  '/admin/support': ['Support Requests', 'Review and resolve user help requests.'],
+  '/admin/support': ['Support Tickets', 'Review and resolve user help requests.'],
   '/admin/reports': ['Reports', 'Review operational and booking insights.'],
   '/admin/profile': ['Admin Profile', 'Manage your administrator account and security.'],
 };
@@ -269,8 +269,6 @@ export default function AdminLayout() {
               {profileOpen && (
                 <div className="admin-profile-dropdown" role="menu">
                   <Link to="/admin/profile" role="menuitem">Admin Profile</Link>
-                  <Link to="/admin/profile?modal=edit" role="menuitem">Edit Profile</Link>
-                  <Link to="/admin/profile?modal=password" role="menuitem">Change Password</Link>
                   <button type="button" role="menuitem" onClick={handleLogout}>Logout</button>
                 </div>
               )}

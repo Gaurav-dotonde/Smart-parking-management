@@ -356,8 +356,8 @@ export default function AdminBookings() {
       </section>
 
       {(detailsLoading || detailsError || selectedBooking) && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
+        <div className="modal-backdrop booking-details-backdrop">
+          <div className="modal-card booking-details-modal">
             <div className="dashboard-section-head">
               <h3>Booking Details</h3>
               <button type="button" className="modal-close" aria-label="Close booking details" onClick={() => { setSelectedBooking(null); setDetailsError(''); }}>

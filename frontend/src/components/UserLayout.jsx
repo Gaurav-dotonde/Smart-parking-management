@@ -11,6 +11,7 @@ const titles = {
   '/user/bookings': 'My Bookings',
   '/user/booking-history': 'Booking History',
   '/user/payments': 'Payments',
+  '/user/support': 'Support Center',
   '/user/profile': 'Profile',
   '/user/home': 'User Dashboard',
 };

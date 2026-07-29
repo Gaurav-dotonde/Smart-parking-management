@@ -415,7 +415,16 @@ export default function AdminPanel() {
             <label><span>Vehicle Type</span><select value={filters.vehicleType} onChange={(e) => handleFilterChange('vehicleType', e.target.value)}><option value="">All types</option>{vehicleTypes.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
             <label><span>Slot Type</span><select value={filters.slotType} onChange={(e) => handleFilterChange('slotType', e.target.value)}><option value="">All types</option>{slotTypes.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
             <label><span>Status</span><select value={filters.status} onChange={(e) => handleFilterChange('status', e.target.value)}><option value="">All statuses</option>{statuses.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
-            <label><span>Page Size</span><div className="slots-page-size-control"><select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}>{pageSizes.map((s) => <option key={s} value={s}>{s}</option>)}</select><button className="admin-secondary-button" type="button" onClick={clearFilters}>Reset Filters</button></div></label>
+            <label className="slots-page-size-field">
+              <span>Page Size</span>
+              <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}>
+                {pageSizes.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+            <div className="slots-page-size-control">
+              <span className="slots-filter-helper">Filter actions</span>
+              <button className="admin-secondary-button" type="button" onClick={clearFilters}>Reset Filters</button>
+            </div>
           </section>
 
           <section className="admin-data-card">
@@ -514,7 +523,7 @@ export default function AdminPanel() {
         <form className="admin-form-grid" onSubmit={saveSlot}>
           <label><span>Parking Location *</span><select required disabled={modalState.type === 'edit'} value={form.lotId} onChange={(e) => setForm((c) => ({ ...c, lotId: e.target.value }))}><option value="">Select location</option>{activeLots.map((lot) => <option key={lot.id} value={lot.id}>{lot.name}</option>)}</select></label>
           <label><span>Slot Number</span><input disabled value="Assigned automatically" /></label>
-          <label><span>Floor</span><select disabled value={form.floor}><option value={form.floor}>{floorName(form.floor)}</option></select></label>
+          <label><span>Floor</span><select required disabled={modalState.type === 'edit'} value={form.floor} onChange={(e) => setForm((c) => ({ ...c, floor: Number(e.target.value) }))}>{floorSummaries.length ? floorSummaries.map((floor) => <option key={floor.value} value={floor.value}>{floor.label}</option>) : <option value={form.floor}>{floorName(form.floor)}</option>}</select></label>
           <label><span>Zone / Section</span><input value={form.zone} onChange={(e) => setForm((c) => ({ ...c, zone: e.target.value }))} /></label>
           <label><span>Vehicle Type *</span><select required value={form.vehicleType} onChange={(e) => setForm((c) => ({ ...c, vehicleType: e.target.value }))}>{vehicleTypes.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
           <label><span>Slot Type *</span><select required value={form.slotType} onChange={(e) => setForm((c) => ({ ...c, slotType: e.target.value }))}>{slotTypes.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>

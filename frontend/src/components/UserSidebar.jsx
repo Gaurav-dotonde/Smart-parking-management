@@ -8,6 +8,7 @@ const items = [
   { label: 'My Bookings', to: '/user/bookings', icon: 'bookings' },
   { label: 'Booking History', to: '/user/booking-history', icon: 'history' },
   { label: 'Payments', to: '/user/payments', icon: 'payments' },
+  { label: 'Support', to: '/user/support', icon: 'support' },
   { label: 'Profile', to: '/user/profile', icon: 'profile' },
 ];
 
@@ -65,6 +66,14 @@ function UserIcon({ name }) {
           <rect x="4" y="7" width="16" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
           <path d="M4 10H20" stroke="currentColor" strokeWidth="1.8" />
           <path d="M8 14H11.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'support':
+      return (
+        <svg {...commonProps}>
+          <path d="M12 18.5c4.1421 0 7.5-2.91 7.5-6.5S16.1421 5.5 12 5.5 4.5 8.41 4.5 12c0 1.67.84 3.2 2.25 4.35V20l3.08-1.54c.67.2 1.38.3 2.17.3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+          <path d="M9.25 11.2a2.75 2.75 0 1 1 3.9 2.5V14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="12" cy="16.1" r="1" fill="currentColor" stroke="none" />
         </svg>
       );
     case 'profile':

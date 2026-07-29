@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class ParkingSystemApplication {
     public static void main(String[] args) {
-        SpringApplication.run(ParkingSystemApplication.class, args);
+        SpringApplication.run(ParkingSystemApplication.class, args); 
     }
 }
 

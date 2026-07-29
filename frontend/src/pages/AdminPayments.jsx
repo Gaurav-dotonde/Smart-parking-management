@@ -198,8 +198,8 @@ export default function AdminPayments() {
       </section>
 
       {form && (
-        <div className="modal-backdrop">
-          <form className="modal-card" onSubmit={submit}>
+        <div className="modal-backdrop payments-record-backdrop">
+          <form className="modal-card payments-record-modal" onSubmit={submit}>
             <div className="dashboard-section-head">
               <h3>Record Payment</h3>
               <button type="button" className="modal-close" onClick={() => setForm(null)}>
