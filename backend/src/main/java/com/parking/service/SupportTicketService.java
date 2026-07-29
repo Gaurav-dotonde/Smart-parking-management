@@ -67,9 +67,9 @@ public class SupportTicketService {
         return toDetail(ticket, managedUser, false);
     }
 
-    public SupportTicketPageResponse getMyTickets(User currentUser, String query, int page, int size) {
+    public SupportTicketPageResponse getMyTickets(User currentUser, String query, String status, int page, int size) {
         User managedUser = requireManagedUser(currentUser);
-        List<SupportTicket> tickets = ticketRepository.findAll(userSpecification(managedUser.getId(), query));
+        List<SupportTicket> tickets = ticketRepository.findAll(userSpecification(managedUser.getId(), query, status));
         tickets = sortTickets(tickets);
         return toPage(tickets, Math.max(page, 0), clampPageSize(size), false);
     }
@@ -418,11 +418,14 @@ public class SupportTicketService {
         };
     }
 
-    private Specification<SupportTicket> userSpecification(Long userId, String query) {
+    private Specification<SupportTicket> userSpecification(Long userId, String query, String status) {
         return (root, cq, cb) -> {
             cq.distinct(true);
             var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
             predicates.add(cb.equal(root.get("user").get("id"), userId));
+            if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+                predicates.add(cb.equal(cb.upper(root.get("status").as(String.class)), status.toUpperCase(Locale.ROOT)));
+            }
             addSearchPredicates(root, cb, predicates, query);
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };

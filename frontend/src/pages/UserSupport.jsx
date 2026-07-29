@@ -77,6 +77,7 @@ export default function UserSupport() {
   const [listLoading, setListLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(0);
   const [refreshToken, setRefreshToken] = useState(0);
   const [createState, setCreateState] = useState({ saving: false, message: '', error: '' });
@@ -100,7 +101,7 @@ export default function UserSupport() {
     try {
       const [summaryResult, ticketsResult] = await Promise.all([
         getMySupportSummary(),
-        getMySupportTickets({ page: nextPage, size: 10, query: nextQuery || undefined }),
+        getMySupportTickets({ page: nextPage, size: 10, query: nextQuery || undefined, status: statusFilter || undefined }),
       ]);
       setSummary({
         totalTickets: summaryResult.data?.totalTickets || 0,
@@ -122,7 +123,7 @@ export default function UserSupport() {
     let mounted = true;
     setLoading(true);
     setListLoading(true);
-    Promise.all([getMySupportSummary(), getMySupportTickets({ page, size: 10, query: query || undefined })])
+    Promise.all([getMySupportSummary(), getMySupportTickets({ page, size: 10, query: query || undefined, status: statusFilter || undefined })])
       .then(([summaryResult, ticketsResult]) => {
         if (!mounted) return;
         setSummary({
@@ -148,7 +149,7 @@ export default function UserSupport() {
     return () => {
       mounted = false;
     };
-  }, [page, query, refreshToken]);
+  }, [page, query, statusFilter, refreshToken]);
 
   useEffect(() => {
     if (!ticketId) {
@@ -273,7 +274,20 @@ export default function UserSupport() {
 
       <section className="support-summary-grid">
         {stats.map((item, index) => (
-          <article key={item.label} className={`support-summary-card tone-${summaryTone(index)}`}>
+          <article
+            key={item.label}
+            className={`support-summary-card tone-${summaryTone(index)}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => { setPage(0); setStatusFilter(['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'][index]); }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setPage(0);
+                setStatusFilter(['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'][index]);
+              }
+            }}
+          >
             <span className="support-summary-icon">{item.icon}</span>
             <div>
               <small>{item.label}</small>
@@ -349,27 +363,6 @@ export default function UserSupport() {
             <div className="support-contact-item"><strong>Emergency Support</strong><span>Available 24×7</span></div>
           </div>
 
-          <div className="user-page-card support-faq-card">
-            <span className="booking-details-kicker">FAQ</span>
-            <h3>Frequently Asked Questions</h3>
-            <div className="support-faq-list">
-              {[
-                'Payment failed but amount deducted',
-                'Refund process',
-                'Booking cancellation',
-                'Booking extension',
-                'Check-In process',
-                'Check-Out process',
-                'Vehicle not found',
-                'How to contact support',
-              ].map((question) => (
-                <details key={question} className="support-faq-item">
-                  <summary>{question}</summary>
-                  <p>Open a support ticket with the relevant booking, transaction or parking details and our team will respond as soon as possible.</p>
-                </details>
-              ))}
-            </div>
-          </div>
         </aside>
       </section>
 

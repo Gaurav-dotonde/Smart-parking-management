@@ -50,6 +50,7 @@ public class SupportTicketController {
     public ResponseEntity<?> myTickets(
             @AuthenticationPrincipal User user,
             @RequestParam(required = false) String query,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size
     ) {
@@ -57,6 +58,7 @@ public class SupportTicketController {
             SupportTicketPageResponse response = supportTicketService.getMyTickets(
                     user,
                     query,
+                    status,
                     page == null ? 0 : page,
                     size == null ? 10 : size
             );

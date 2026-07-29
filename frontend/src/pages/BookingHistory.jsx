@@ -58,6 +58,7 @@ export default function BookingHistory() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sortAscending, setSortAscending] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -91,8 +92,10 @@ export default function BookingHistory() {
         : requestedStatus === 'HISTORY'
           ? ['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(booking.status)
           : booking.status === requestedStatus)
-      .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-  }, [bookings, location.search]);
+      .sort((a, b) => sortAscending
+        ? new Date(a.startTime) - new Date(b.startTime)
+        : new Date(b.startTime) - new Date(a.startTime));
+  }, [bookings, location.search, sortAscending]);
 
   const stats = useMemo(() => {
     const total = bookings.length;
@@ -126,7 +129,9 @@ export default function BookingHistory() {
           </div>
           <div className="booking-history-sort">
             <span>Sort by</span>
-            <div className="booking-history-sort-pill">Newest First</div>
+            <button type="button" className="booking-history-sort-pill" onClick={() => setSortAscending((current) => !current)}>
+              {sortAscending ? 'Oldest First' : 'Newest First'}
+            </button>
           </div>
         </div>
 

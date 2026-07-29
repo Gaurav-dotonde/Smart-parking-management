@@ -480,13 +480,6 @@ export default function AdminPanel() {
                             <button className="slots-table-action" title="View slot" aria-label={`View ${slot.slotNumber}`} onClick={() => openView(slot)}><Icon name="eye" /></button>
                             <button className="slots-table-action" title="Edit slot" aria-label={`Edit ${slot.slotNumber}`} onClick={() => openEdit(slot)}><Icon name="edit" /></button>
                             <button className="slots-table-action danger" title="Delete slot" aria-label={`Delete ${slot.slotNumber}`} onClick={() => openArchive(slot)}><Icon name="trash" /></button>
-                            <DropdownTrigger label={<Icon name="more" />} iconOnly>
-                              <DropdownItem onClick={() => openView(slot)}>View</DropdownItem>
-                              <DropdownItem onClick={() => openEdit(slot)}>Edit</DropdownItem>
-                              <DropdownItem onClick={() => openStatus(slot, slot.status)}>Change Status</DropdownItem>
-                              <DropdownItem onClick={() => openStatus(slot, 'MAINTENANCE')}>Mark Maintenance</DropdownItem>
-                              <DropdownItem onClick={() => openStatus(slot, 'INACTIVE')}>Disable</DropdownItem>
-                            </DropdownTrigger>
                           </div>
                         </td>
                       </tr>
