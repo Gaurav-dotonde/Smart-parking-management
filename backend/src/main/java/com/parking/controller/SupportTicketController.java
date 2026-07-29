@@ -1,58 +1,179 @@
 package com.parking.controller;
 
-import com.parking.dto.*;
-import com.parking.model.*;
-import com.parking.repository.SupportTicketRepository;
-import com.parking.repository.UserRepository;
+import com.parking.dto.SupportReplyRequest;
+import com.parking.dto.SupportSummaryResponse;
+import com.parking.dto.SupportTicketDetailResponse;
+import com.parking.dto.SupportTicketPageResponse;
+import com.parking.dto.SupportTicketRequest;
+import com.parking.dto.SupportTicketUpdateRequest;
+import com.parking.model.User;
+import com.parking.service.SupportTicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.*;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
 import java.util.List;
-import org.springframework.transaction.annotation.Transactional;
 
-@RestController @RequiredArgsConstructor
+@RestController
+@RequestMapping("/api")
+@RequiredArgsConstructor
+@Validated
 public class SupportTicketController {
-    private final SupportTicketRepository repository;
-    private final UserRepository userRepository;
 
-    @PostMapping("/api/support/tickets")
-    @Transactional
-    public ResponseEntity<SupportTicketResponse> create(@AuthenticationPrincipal User user, @Valid @RequestBody SupportTicketRequest request) {
-        User managedUser = userRepository.findById(user.getId())
-            .orElseThrow(() -> new IllegalArgumentException("User account not found."));
-        SupportTicket ticket = repository.saveAndFlush(SupportTicket.builder().user(managedUser).subject(request.subject().trim())
-            .category(request.category()).message(request.message().trim()).build());
-        return ResponseEntity.status(201).body(toResponse(ticket));
+    private final SupportTicketService supportTicketService;
+
+    @PostMapping(value = "/support/tickets", consumes = "application/json")
+    public ResponseEntity<SupportTicketDetailResponse> createTicket(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody SupportTicketRequest request
+    ) {
+        return ResponseEntity.ok(supportTicketService.createTicket(user, request, List.of()));
     }
 
-    @GetMapping("/api/support/tickets/mine")
-    @Transactional(readOnly = true)
-    public List<SupportTicketResponse> mine(@AuthenticationPrincipal User user) {
-        return repository.findByUserIdOrderByCreatedAtDesc(user.getId()).stream().map(this::toResponse).toList();
+    @PostMapping(value = "/support/tickets", consumes = "multipart/form-data")
+    public ResponseEntity<SupportTicketDetailResponse> createTicketMultipart(
+            @AuthenticationPrincipal User user,
+            @Valid @ModelAttribute SupportTicketRequest request,
+            @RequestPart(value = "attachments", required = false) List<MultipartFile> attachments
+    ) {
+        return ResponseEntity.ok(supportTicketService.createTicket(user, request, attachments));
     }
 
-    @GetMapping("/api/admin/support")
+    @GetMapping("/support/tickets/mine")
+    public ResponseEntity<?> myTickets(
+            @AuthenticationPrincipal User user,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
+    ) {
+        if (page != null || size != null) {
+            SupportTicketPageResponse response = supportTicketService.getMyTickets(
+                    user,
+                    query,
+                    page == null ? 0 : page,
+                    size == null ? 10 : size
+            );
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.ok(supportTicketService.getMyTickets(user));
+    }
+
+    @GetMapping("/support/tickets/summary")
+    public ResponseEntity<SupportSummaryResponse> summary(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(supportTicketService.getMySummary(user));
+    }
+
+    @GetMapping("/support/tickets/{id}")
+    public ResponseEntity<SupportTicketDetailResponse> ticket(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(supportTicketService.getMyTicketDetail(user, id));
+    }
+
+    @PostMapping(value = "/support/tickets/{id}/reply", consumes = "application/json")
+    public ResponseEntity<SupportTicketDetailResponse> reply(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id,
+            @Valid @RequestBody SupportReplyRequest request
+    ) {
+        return ResponseEntity.ok(supportTicketService.replyAsUser(user, id, request, List.of()));
+    }
+
+    @PostMapping(value = "/support/tickets/{id}/reply", consumes = "multipart/form-data")
+    public ResponseEntity<SupportTicketDetailResponse> replyMultipart(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id,
+            @Valid @ModelAttribute SupportReplyRequest request,
+            @RequestPart(value = "attachments", required = false) List<MultipartFile> attachments
+    ) {
+        return ResponseEntity.ok(supportTicketService.replyAsUser(user, id, request, attachments));
+    }
+
+    @PostMapping("/support/tickets/{id}/close")
+    public ResponseEntity<SupportTicketDetailResponse> closeTicket(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(supportTicketService.closeTicket(user, id));
+    }
+
+    @GetMapping("/admin/support")
     @PreAuthorize("hasRole('ADMIN')")
-    @Transactional(readOnly = true)
-    public List<SupportTicketResponse> all() {
-        return repository.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
+    public ResponseEntity<?> adminTickets(
+            @AuthenticationPrincipal User user,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
+    ) {
+        if (page != null || size != null) {
+            return ResponseEntity.ok(supportTicketService.getAdminTickets(
+                    query,
+                    status,
+                    category,
+                    priority,
+                    date,
+                    page == null ? 0 : page,
+                    size == null ? 10 : size
+            ));
+        }
+        return ResponseEntity.ok(supportTicketService.getAdminTickets());
     }
 
-    @PutMapping("/api/admin/support/{id}")
+    @GetMapping("/admin/support/summary")
     @PreAuthorize("hasRole('ADMIN')")
-    public SupportTicketResponse update(@PathVariable Long id, @RequestBody AdminUpdate request) {
-        SupportTicket ticket = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
-        if (request.status() != null) ticket.setStatus(request.status());
-        if (request.adminReply() != null) ticket.setAdminReply(request.adminReply().trim());
-        return toResponse(repository.save(ticket));
+    public ResponseEntity<SupportSummaryResponse> adminSummary(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(supportTicketService.getAdminSummary());
     }
 
-    private SupportTicketResponse toResponse(SupportTicket t) {
-        return new SupportTicketResponse(t.getId(), t.getUser().getId(), t.getUser().getName(), t.getUser().getEmail(),
-            t.getSubject(), t.getCategory(), t.getMessage(), t.getStatus(), t.getAdminReply(), t.getCreatedAt(), t.getUpdatedAt());
+    @GetMapping("/admin/support/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> adminTicket(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(supportTicketService.getAdminTicketDetail(id, user));
     }
-    public record AdminUpdate(String status, String adminReply) {}
+
+    @PutMapping("/admin/support/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> updateAdminTicket(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id,
+            @Valid @RequestBody SupportTicketUpdateRequest request
+    ) {
+        return ResponseEntity.ok(supportTicketService.updateAdminTicket(id, user, request));
+    }
+
+    @PostMapping(value = "/admin/support/{id}/reply", consumes = "application/json")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> replyAsAdmin(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id,
+            @Valid @RequestBody SupportReplyRequest request
+    ) {
+        return ResponseEntity.ok(supportTicketService.replyAsAdmin(id, user, request, List.of()));
+    }
+
+    @PostMapping(value = "/admin/support/{id}/reply", consumes = "multipart/form-data")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> replyAsAdminMultipart(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long id,
+            @Valid @ModelAttribute SupportReplyRequest request,
+            @RequestPart(value = "attachments", required = false) List<MultipartFile> attachments
+    ) {
+        return ResponseEntity.ok(supportTicketService.replyAsAdmin(id, user, request, attachments));
+    }
 }

@@ -27,6 +27,7 @@ import FindParking from './pages/FindParking';
 import AvailableSlots from './pages/AvailableSlots';
 import BookingHistory from './pages/BookingHistory';
 import Payments from './pages/Payments';
+import UserSupport from './pages/UserSupport';
 import UserProfile from './pages/UserProfile';
 import BookingDetails from './pages/BookingDetails';
 import PaymentPlaceholderPage from './payment/PaymentPlaceholderPage';
@@ -74,6 +75,8 @@ export default function App() {
             <Route path="bookings" element={<MyBookings />} />
             <Route path="booking-history" element={<BookingHistory />} />
             <Route path="payments" element={<Payments />} />
+            <Route path="support" element={<UserSupport />} />
+            <Route path="support/:ticketId" element={<UserSupport />} />
             <Route path="payment-placeholder" element={<PaymentPlaceholderPage />} />
             <Route path="profile" element={<UserProfile />} />
           </Route>

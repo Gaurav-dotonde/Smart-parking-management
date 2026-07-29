@@ -193,7 +193,7 @@ export default function AdminVehicles() {
     <section className="card users-card" ref={tableRef}>
       {error && <div className="error-text">{error}</div>}
       {loading ? <div className="empty-state">Loading vehicles...</div> : !visible.length ? <div className="empty-state">{archivedView ? 'No archived vehicles found.' : 'No vehicles found.'}</div> : <div className="dashboard-table-wrap">
-        <table className="dashboard-table"><thead><tr><th>ID</th><th>Registration</th><th>Owner</th><th>Type</th><th>Brand / Model</th><th>Color</th><th>Status</th><th>Actions</th></tr></thead>
+        <table className="dashboard-table admin-vehicles-table"><thead><tr><th>ID</th><th>Registration</th><th>Owner</th><th>Type</th><th>Brand / Model</th><th>Color</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>{visible.map((vehicle) => <tr key={vehicle.id}>
             <td>{vehicle.id}</td><td><strong>{vehicle.registrationNumber}</strong></td><td>{vehicle.ownerName}<small>{vehicle.ownerEmail}</small></td>
             <td>{vehicle.vehicleType}</td><td>{[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'N/A'}</td><td>{vehicle.color || 'N/A'}</td>

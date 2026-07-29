@@ -1,6 +1,9 @@
 package com.parking.dto;
+
 import java.time.LocalDateTime;
-public record SupportTicketResponse(
+import java.util.List;
+
+public record SupportTicketDetailResponse(
         Long id,
         String ticketNumber,
         Long userId,
@@ -15,9 +18,13 @@ public record SupportTicketResponse(
         String priority,
         String assignedToName,
         String assignedToEmail,
-        Long messageCount,
-        Long attachmentCount,
+        String internalNotes,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        LocalDateTime closedAt
+        LocalDateTime closedAt,
+        List<SupportMessageResponse> messages,
+        List<SupportAttachmentResponse> attachments,
+        List<SupportStatusHistoryResponse> history,
+        boolean canReply,
+        boolean canClose
 ) {}
