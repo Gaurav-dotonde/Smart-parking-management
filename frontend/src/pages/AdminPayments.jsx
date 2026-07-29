@@ -60,6 +60,19 @@ export default function AdminPayments() {
     [rows, status, search]
   );
 
+  const sortedBookings = useMemo(
+    () =>
+      [...bookings].sort((a, b) => {
+        const left = Number(a.id);
+        const right = Number(b.id);
+        if (Number.isNaN(left) && Number.isNaN(right)) return 0;
+        if (Number.isNaN(left)) return 1;
+        if (Number.isNaN(right)) return -1;
+        return left - right;
+      }),
+    [bookings]
+  );
+
   const submit = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -222,7 +235,7 @@ export default function AdminPayments() {
                   }}
                 >
                   <option value="">Select booking</option>
-                  {bookings.map((booking) => (
+                  {sortedBookings.map((booking) => (
                     <option key={booking.id} value={booking.id}>
                       #{booking.id} - {booking.userName}
                     </option>
