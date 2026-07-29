@@ -13,6 +13,7 @@ import {
 const blank = { ownerId: '', registrationNumber: '', vehicleType: 'CAR', brand: '', model: '', color: '', active: true };
 const errorMessage = (error, fallback = 'The vehicle operation failed.') => error.response?.data?.message || fallback;
 const BusyLabel = ({ children }) => <><span className="admin-spinner vehicle-action-spinner" aria-hidden="true" />{children}</>;
+const normalizeVehicleType = (value) => (value || '').toString().trim().toUpperCase().replace(/[\s-]+/g, '_');
 
 export default function AdminVehicles() {
   const [vehicles, setVehicles] = useState([]);
@@ -59,10 +60,25 @@ export default function AdminVehicles() {
   }, [message]);
 
   const visible = useMemo(() => {
+    const searchValue = search.trim().toLowerCase();
+    const selectedType = normalizeVehicleType(type);
     const filtered = vehicles
-      .filter((vehicle) => (type === 'ALL' || vehicle.vehicleType === type)
-        && (summaryFilter !== 'ACTIVE' || vehicle.active)
-        && (!search || `${vehicle.registrationNumber} ${vehicle.ownerName} ${vehicle.ownerEmail}`.toLowerCase().includes(search.toLowerCase())))
+      .filter((vehicle) => {
+        const vehicleType = normalizeVehicleType(vehicle.vehicleType);
+        const searchableText = [
+          vehicle.registrationNumber,
+          vehicle.ownerName,
+          vehicle.ownerEmail,
+          vehicle.vehicleType,
+          vehicle.brand,
+          vehicle.model,
+          vehicle.color,
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return (selectedType === 'ALL' || vehicleType === selectedType)
+          && (summaryFilter !== 'ACTIVE' || vehicle.active)
+          && (!searchValue || searchableText.includes(searchValue));
+      })
       .sort((a, b) => Number(a.id) - Number(b.id));
 
     if (summaryFilter !== 'OWNERS') return filtered;

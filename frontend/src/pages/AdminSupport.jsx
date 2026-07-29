@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getAdminUsers } from '../services/userService';
 import {
   getAdminSupportSummary,
@@ -96,6 +96,7 @@ export default function AdminSupport() {
     assignedToId: '',
     internalNotes: '',
   });
+  const tableRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -148,14 +149,22 @@ export default function AdminSupport() {
   }, [page, query, statusFilter, categoryFilter, priorityFilter, dateFilter]);
 
   const summaryCards = useMemo(() => ([
-    { label: 'Total Tickets', value: summary.totalTickets || 0, tone: 'blue' },
-    { label: 'Open', value: summary.open || 0, tone: 'amber' },
-    { label: 'In Progress', value: summary.inProgress || 0, tone: 'orange' },
-    { label: 'Waiting For User', value: summary.waitingForUser || 0, tone: 'purple' },
-    { label: 'Resolved', value: summary.resolved || 0, tone: 'green' },
-    { label: 'Closed', value: summary.closed || 0, tone: 'gray' },
-    { label: "Today's Tickets", value: summary.todayTickets || 0, tone: 'blue' },
+    { label: 'Total Tickets', value: summary.totalTickets || 0, tone: 'blue', filter: 'ALL' },
+    { label: 'Open', value: summary.open || 0, tone: 'amber', filter: 'OPEN' },
+    { label: 'In Progress', value: summary.inProgress || 0, tone: 'orange', filter: 'IN_PROGRESS' },
+    { label: 'Waiting For User', value: summary.waitingForUser || 0, tone: 'purple', filter: 'WAITING_FOR_USER' },
+    { label: 'Resolved', value: summary.resolved || 0, tone: 'green', filter: 'RESOLVED' },
+    { label: 'Closed', value: summary.closed || 0, tone: 'gray', filter: 'CLOSED' },
+    { label: "Today's Tickets", value: summary.todayTickets || 0, tone: 'blue', filter: 'ALL' },
   ]), [summary]);
+
+  const handleSummaryCardClick = (card) => {
+    setPage(0);
+    setStatusFilter(card.filter);
+    requestAnimationFrame(() => {
+      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   const openTicket = async (ticket) => {
     setDetailLoading(true);
@@ -244,7 +253,19 @@ export default function AdminSupport() {
 
       <section className="support-admin-stats support-admin-stats-grid">
         {summaryCards.map((card) => (
-          <article key={card.label} className={`tone-${card.tone}`}>
+          <article
+            key={card.label}
+            className={`tone-${card.tone} support-admin-stat-card`}
+            role="button"
+            tabIndex={0}
+            onClick={() => handleSummaryCardClick(card)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                handleSummaryCardClick(card);
+              }
+            }}
+          >
             <span className="support-stat-icon">{card.label === 'Closed' ? '✓' : card.label === 'Waiting For User' ? '↺' : card.label === "Today's Tickets" ? '⌁' : '•'}</span>
             <div>
               <small>{card.label}</small>
@@ -300,7 +321,7 @@ export default function AdminSupport() {
         ) : ticketsPage.content?.length === 0 ? (
           <div className="support-admin-empty"><span>✓</span><h3>No tickets found</h3><p>No support requests match this view.</p></div>
         ) : (
-          <div className="dashboard-table-wrap admin-responsive-table support-admin-table-wrap">
+          <div ref={tableRef} className="dashboard-table-wrap admin-responsive-table support-admin-table-wrap">
             <table className="dashboard-table support-admin-table">
               <thead>
                 <tr>

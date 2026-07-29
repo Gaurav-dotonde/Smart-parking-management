@@ -676,6 +676,8 @@ body {
 .support-admin-hero-art i { width:14px;height:14px;left:-25px;top:12px }.support-admin-hero-art b{width:9px;height:9px;right:-20px;bottom:8px}
 .support-admin-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; }
 .support-admin-stats article { display:flex; align-items:center; gap:14px; min-height:104px; padding:17px 19px; border:1px solid #d9e7f7; border-radius:16px; background:#fff; box-shadow:0 8px 22px rgba(28,74,130,.055); }
+.support-admin-stat-card { cursor:pointer; }
+.support-admin-stat-card:focus-visible { outline:3px solid #dbeafe; outline-offset:2px; }
 .support-stat-icon { display:grid; place-items:center; flex:0 0 auto; width:46px;height:46px;border-radius:13px;font-size:1.2rem;font-weight:900 }
 .support-admin-stats small,.support-admin-stats p { color:#718096;font-size:.76rem }.support-admin-stats strong{display:block;margin:1px 0;color:#10213b;font-size:1.45rem}.support-admin-stats p{margin:0}
 .support-admin-stats .tone-blue .support-stat-icon{color:#1473e6;background:#e5f1ff}.support-admin-stats .tone-amber .support-stat-icon{color:#b76b00;background:#fff1d6}.support-admin-stats .tone-purple .support-stat-icon{color:#7c3aed;background:#f1e8ff}.support-admin-stats .tone-green .support-stat-icon{color:#07834c;background:#dcf8e9}
@@ -765,8 +767,26 @@ body {
 .support-search { display:flex; align-items:center; gap:8px; min-width:min(420px,100%); padding:0 12px; border:1px solid #cdd9ea; border-radius:12px; background:#fff; color:#64748b; }
 .support-search input { width:100%; height:42px; border:0; outline:0; background:transparent; font:inherit; }
 .support-empty-state { display:grid; place-items:center; gap:6px; min-height:180px; color:#6b7c93; text-align:center; }
-.support-table-wrap { overflow-x:auto; }
-.support-table { min-width:1120px; }
+.support-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #9db7d3 transparent;
+  scrollbar-gutter: stable;
+  padding-bottom: 6px;
+}
+.support-table-wrap::-webkit-scrollbar { height: 8px; }
+.support-table-wrap::-webkit-scrollbar-track { background: transparent; }
+.support-table-wrap::-webkit-scrollbar-thumb { background: #9db7d3; border-radius: 999px; }
+.support-table { min-width: 1120px; width: 100%; }
+.support-table th,
+.support-table td {
+  white-space: nowrap;
+}
 .support-view-btn { min-width:88px; }
 .support-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:4px 0 0; color:#64748b; font-size:.88rem; }
 .support-pagination-actions { display:flex; align-items:center; gap:10px; }
@@ -797,8 +817,33 @@ body {
 .support-admin-stats-grid article strong { display:block; margin:1px 0; color:#10213b; font-size:1.45rem; }
 .support-admin-filters-wrap { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; align-items:center; }
 .support-admin-filters-wrap select, .support-admin-filters-wrap input { width:100%; height:42px; padding:0 12px; border:1px solid #cdd9ea; border-radius:12px; background:#fff; }
-.support-admin-table-wrap { overflow-x:auto; }
-.support-admin-table { min-width:1320px; }
+.support-admin-table-wrap { overflow-x:auto; max-width:100%; }
+.support-admin-table { width:100%; min-width:0; table-layout:fixed; }
+.support-admin-table th,
+.support-admin-table td {
+  white-space: normal;
+  word-break: break-word;
+}
+.support-admin-table th:nth-child(1) { width: 10%; }
+.support-admin-table th:nth-child(2) { width: 16%; }
+.support-admin-table th:nth-child(3) { width: 11%; }
+.support-admin-table th:nth-child(4) { width: 9%; }
+.support-admin-table th:nth-child(5) { width: 10%; }
+.support-admin-table th:nth-child(6) { width: 8%; }
+.support-admin-table th:nth-child(7) { width: 9%; }
+.support-admin-table th:nth-child(8) { width: 13%; }
+.support-admin-table th:nth-child(9) { width: 12%; }
+.support-admin-table th:nth-child(10) { width: 12%; }
+.support-admin-table td:nth-child(1),
+.support-admin-table td:nth-child(4),
+.support-admin-table td:nth-child(5),
+.support-admin-table td:nth-child(6),
+.support-admin-table td:nth-child(7),
+.support-admin-table td:nth-child(8),
+.support-admin-table td:nth-child(9),
+.support-admin-table td:nth-child(10) {
+  vertical-align: top;
+}
 .support-admin-detail-modal { width:min(980px,100%); }
 
 @media(max-width:1100px) {
