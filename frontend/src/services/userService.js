@@ -4,10 +4,14 @@ import { emitParkingDataChanged } from './dataSync';
 export const getCurrentUser = () => api.get('/users/me');
 export const updateCurrentUser = (data) => api.put('/users/me', data);
 export const changeCurrentUserPassword = (data) => api.put('/users/me/password', data);
+export const uploadCurrentUserPhoto = (formData) => api.post('/users/me/photo', formData);
+export const deleteCurrentUserPhoto = () => api.delete('/users/me/photo');
 export const getUserDashboard = () => api.get('/users/me/dashboard');
 
 export const getAdminUsers = () => api.get('/admin/users');
 export const getAdminUserById = (id) => api.get(`/admin/users/${id}`);
+export const uploadAdminUserPhoto = (id, formData) => api.post(`/admin/users/${id}/photo`, formData);
+export const deleteAdminUserPhoto = (id) => api.delete(`/admin/users/${id}/photo`);
 export const createAdminUser = async (data) => {
   const response = await api.post('/admin/users', data);
   emitParkingDataChanged({ type: 'user-created', userId: response.data.id });

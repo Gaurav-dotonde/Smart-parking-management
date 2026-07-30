@@ -4,8 +4,21 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : null;
+    // Keep authentication only for the current browser session. The previous
+    // localStorage implementation opened the dashboard after restarting.
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
+    const stored = sessionStorage.getItem('user');
+    if (!stored) return null;
+
+    try {
+      return JSON.parse(stored);
+    } catch {
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      return null;
+    }
   });
 
   const loginUser = (authResponse) => {
@@ -19,8 +32,8 @@ export function AuthProvider({ children }) {
       profilePhoto: profilePhoto || null,
       profilePhotoUrl: profilePhoto || null,
     };
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+    sessionStorage.setItem('token', token);
+    sessionStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };
 
@@ -28,12 +41,15 @@ export function AuthProvider({ children }) {
     setUser((current) => {
       if (!current) return current;
       const nextUser = { ...current, ...updates };
-      localStorage.setItem('user', JSON.stringify(nextUser));
+      sessionStorage.setItem('user', JSON.stringify(nextUser));
       return nextUser;
     });
   };
 
   const logoutUser = () => {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    // Also clear authentication saved by older versions of the app.
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);

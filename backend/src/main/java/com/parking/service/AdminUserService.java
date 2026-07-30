@@ -16,15 +16,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AdminUserService {
+    private static final long MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+    private static final List<String> ALLOWED_PHOTO_TYPES = List.of("image/jpeg", "image/png", "image/webp");
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
@@ -95,8 +104,61 @@ public class AdminUserService {
                 user.getAccountStatus() == null ? AccountStatus.ACTIVE.name() : user.getAccountStatus().name(),
                 bookingRepository.countByUserId(id),
                 user.getCreatedAt(),
+                user.getProfilePhoto(),
                 recentBookings
         );
+    }
+
+    @Transactional
+    public AdminUserDetailsResponse uploadUserPhoto(Long userId, MultipartFile file) {
+        User user = getManagedUser(userId);
+        if (file == null || file.isEmpty()) throw new IllegalArgumentException("Please choose a photo to upload.");
+        if (file.getSize() > MAX_PHOTO_SIZE_BYTES) throw new IllegalArgumentException("Profile photo must be 5 MB or smaller.");
+        if (file.getContentType() == null || !ALLOWED_PHOTO_TYPES.contains(file.getContentType())) {
+            throw new IllegalArgumentException("Only JPG, JPEG, PNG, and WEBP files are allowed.");
+        }
+        try {
+            deleteStoredPhoto(user);
+            Path uploadDir = resolveUploadRoot().resolve("profile-photos");
+            Files.createDirectories(uploadDir);
+            String originalName = file.getOriginalFilename();
+            String extension = originalName != null && originalName.contains(".")
+                    ? originalName.substring(originalName.lastIndexOf('.')).toLowerCase() : "";
+            String fileName = "user-" + user.getId() + "-" + UUID.randomUUID() + extension;
+            Files.copy(file.getInputStream(), uploadDir.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+            user.setProfilePhoto("/uploads/profile-photos/" + fileName);
+            userRepository.save(user);
+            return getUserDetails(userId);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to store profile photo.");
+        }
+    }
+
+    @Transactional
+    public AdminUserDetailsResponse deleteUserPhoto(Long userId) {
+        User user = getManagedUser(userId);
+        deleteStoredPhoto(user);
+        user.setProfilePhoto(null);
+        userRepository.save(user);
+        return getUserDetails(userId);
+    }
+
+    private void deleteStoredPhoto(User user) {
+        if (user.getProfilePhoto() == null || user.getProfilePhoto().isBlank()) return;
+        Path target = resolveUploadRoot()
+                .resolve(user.getProfilePhoto().replaceFirst("^/uploads/", "")).normalize();
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to replace existing profile photo.");
+        }
+    }
+
+    private Path resolveUploadRoot() {
+        Path workingDirectory = Paths.get("").toAbsolutePath().normalize();
+        return "backend".equalsIgnoreCase(String.valueOf(workingDirectory.getFileName()))
+                ? workingDirectory.resolve("uploads")
+                : workingDirectory.resolve("backend").resolve("uploads");
     }
 
     @Transactional

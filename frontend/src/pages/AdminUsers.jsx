@@ -3,10 +3,12 @@ import { formatDisplayName } from '../utils/formatDisplayName';
 import {
   blockAdminUser,
   createAdminUser,
+  deleteAdminUserPhoto,
   deleteAdminUser,
   getAdminUserById,
   getAdminUsers,
   unblockAdminUser,
+  uploadAdminUserPhoto,
   updateAdminUser,
 } from '../services/userService';
 import { onParkingDataChanged } from '../services/dataSync';
@@ -56,7 +58,11 @@ export default function AdminUsers() {
   const [formUserId, setFormUserId] = useState(null);
   const [userForm, setUserForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const [userPhotoFile, setUserPhotoFile] = useState(null);
+  const [userPhotoPreview, setUserPhotoPreview] = useState('');
+  const [photoLoading, setPhotoLoading] = useState(false);
   const usersTableRef = useRef(null);
+  const userPhotoInputRef = useRef(null);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -113,6 +119,8 @@ export default function AdminUsers() {
   };
 
   const openDetails = async (userId) => {
+    setUserPhotoFile(null);
+    setUserPhotoPreview('');
     setDetailsLoading(true);
     setDetailsError('');
     try {
@@ -122,6 +130,59 @@ export default function AdminUsers() {
       setDetailsError(err.response?.data?.message || 'Failed to load user details.');
     } finally {
       setDetailsLoading(false);
+    }
+  };
+
+  const selectUserPhoto = (event) => {
+    const file = event.target.files?.[0];
+    setDetailsError('');
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setDetailsError('Only PNG, JPG, and WEBP images are allowed.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setDetailsError('Profile photo must be 5 MB or smaller.');
+      return;
+    }
+    if (userPhotoPreview) URL.revokeObjectURL(userPhotoPreview);
+    setUserPhotoFile(file);
+    setUserPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const updateUserPhoto = async () => {
+    if (!selectedUser || !userPhotoFile) return;
+    setPhotoLoading(true);
+    setDetailsError('');
+    try {
+      const data = new FormData();
+      data.append('photo', userPhotoFile);
+      const res = await uploadAdminUserPhoto(selectedUser.id, data);
+      setSelectedUser(res.data);
+      setUserPhotoFile(null);
+      if (userPhotoPreview) URL.revokeObjectURL(userPhotoPreview);
+      setUserPhotoPreview('');
+    } catch (err) {
+      setDetailsError(err.response?.data?.message || 'Failed to update profile photo.');
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
+
+  const removeUserPhoto = async () => {
+    if (!selectedUser) return;
+    setPhotoLoading(true);
+    setDetailsError('');
+    try {
+      const res = await deleteAdminUserPhoto(selectedUser.id);
+      setSelectedUser(res.data);
+      setUserPhotoFile(null);
+      if (userPhotoPreview) URL.revokeObjectURL(userPhotoPreview);
+      setUserPhotoPreview('');
+    } catch (err) {
+      setDetailsError(err.response?.data?.message || 'Failed to remove profile photo.');
+    } finally {
+      setPhotoLoading(false);
     }
   };
 
@@ -392,6 +453,51 @@ export default function AdminUsers() {
                   );
                   return (
                     <>
+                <section className="admin-user-profile-overview">
+                  <div className="admin-user-profile-main">
+                    <div className="admin-user-profile-avatar">
+                      {userPhotoPreview || selectedUser.profilePhotoUrl ? (
+                        <img src={userPhotoPreview || selectedUser.profilePhotoUrl} alt={formatDisplayName(selectedUser.name, 'User')} />
+                      ) : (
+                        <span>{(selectedUser.name || 'U').split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="admin-user-profile-copy">
+                      <span className="admin-user-profile-eyebrow">Profile Overview</span>
+                      <h2>{formatDisplayName(selectedUser.name, 'User')}</h2>
+                      <p>{selectedUser.email}</p>
+                      <div className="admin-user-profile-tags">
+                        <span>#{String(selectedUser.id).padStart(4, '0')}</span>
+                        <span>{selectedUser.role}</span>
+                        <span>{selectedUser.accountStatus}</span>
+                      </div>
+                      <div className="admin-user-profile-actions">
+                        <button type="button" className="is-edit" onClick={() => { openEditForm(selectedUser); setSelectedUser(null); }}>✎ Edit</button>
+                        <button type="button" className="is-view">◉ View</button>
+                        <button type="button" className="is-delete" onClick={() => { setDeleteTarget(selectedUser); setSelectedUser(null); }}>▣ Delete</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="admin-user-photo-card">
+                    <span className="admin-user-photo-label">Profile Photo</span>
+                    <strong>{userPhotoFile ? userPhotoFile.name : selectedUser.profilePhotoUrl ? 'Photo selected' : 'No photo selected'}</strong>
+                    <p>Upload PNG, JPG, or WEBP image.<br />Recommended size: 400×400 px.</p>
+                    <input ref={userPhotoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={selectUserPhoto} hidden />
+                    <button type="button" className="admin-user-photo-choose" onClick={() => userPhotoInputRef.current?.click()}>
+                      ↥ &nbsp; CHOOSE PHOTO
+                    </button>
+                    <div className="admin-user-photo-buttons">
+                      <button type="button" onClick={updateUserPhoto} disabled={!userPhotoFile || photoLoading}>
+                        {photoLoading ? 'Updating...' : 'Update Photo'}
+                      </button>
+                      <button type="button" onClick={removeUserPhoto} disabled={photoLoading || (!selectedUser.profilePhotoUrl && !userPhotoPreview)}>
+                        Remove Photo
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
                 <div className="booking-details-grid">
                   <div><strong>Name:</strong> {formatDisplayName(selectedUser.name, 'User')}</div>
                   <div><strong>Email:</strong> {selectedUser.email}</div>

@@ -8,7 +8,9 @@ import com.parking.service.AdminUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -38,6 +40,17 @@ public class AdminUserController {
     @GetMapping("/{id}")
     public ResponseEntity<AdminUserDetailsResponse> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(adminUserService.getUserDetails(id));
+    }
+
+    @PostMapping(value = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<AdminUserDetailsResponse> uploadUserPhoto(
+            @PathVariable Long id, @RequestPart("photo") MultipartFile photo) {
+        return ResponseEntity.ok(adminUserService.uploadUserPhoto(id, photo));
+    }
+
+    @DeleteMapping("/{id}/photo")
+    public ResponseEntity<AdminUserDetailsResponse> deleteUserPhoto(@PathVariable Long id) {
+        return ResponseEntity.ok(adminUserService.deleteUserPhoto(id));
     }
 
     @PutMapping("/{id}/block")
