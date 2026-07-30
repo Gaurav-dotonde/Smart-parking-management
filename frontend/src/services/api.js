@@ -12,7 +12,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const url = config.url || '';
   const isAuthRoute = url.startsWith('/auth/');
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token && !isAuthRoute) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -30,6 +30,9 @@ api.interceptors.response.use(
       });
     }
     if (error.response?.status === 401) {
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      // Clean up authentication saved by older versions of the app.
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       if (window.location.pathname !== '/login') {

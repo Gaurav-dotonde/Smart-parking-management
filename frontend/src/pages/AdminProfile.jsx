@@ -15,11 +15,6 @@ const emptyPasswordForm = {
   confirmNewPassword: '',
 };
 
-const formatDateTime = (value) => {
-  if (!value) return 'Not available yet';
-  return new Date(value).toLocaleString();
-};
-
 const getPhotoUrl = (value) => {
   if (!value) return '';
   if (value.startsWith('http')) return value;
@@ -266,52 +261,65 @@ export default function AdminProfile() {
   return (
     <div className="container admin-page admin-profile-page">
       <div className="admin-profile-hero card">
-        <div className="admin-profile-hero-main">
-          <div className="admin-profile-avatar-wrap">
-            {photoPreview || profile?.profilePhotoUrl ? (
-              <img
-                src={photoPreview || getPhotoUrl(profile?.profilePhotoUrl)}
-                alt={formatDisplayName(profile?.name, 'Admin')}
-                className="admin-profile-avatar"
-              />
-            ) : (
-              <div className="admin-profile-avatar admin-profile-avatar-fallback">
-                {(profile?.name || 'A').charAt(0).toUpperCase()}
+        <div className="admin-profile-overview-row">
+          <div className="admin-profile-hero-main">
+            <div className="admin-profile-avatar-wrap">
+              {photoPreview || profile?.profilePhotoUrl ? (
+                <img
+                  src={photoPreview || getPhotoUrl(profile?.profilePhotoUrl)}
+                  alt={formatDisplayName(profile?.name, 'Admin')}
+                  className="admin-profile-avatar"
+                />
+              ) : (
+                <div className="admin-profile-avatar admin-profile-avatar-fallback">
+                  {(profile?.name || 'A').charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            <div className="admin-profile-hero-copy">
+              <span className="admin-profile-kicker">Smart Parking Admin</span>
+              <h2 className="page-title">Admin Profile</h2>
+              <p className="subtitle">Manage your account details, profile photo, and password from one secure place.</p>
+              <div className="admin-profile-badges">
+                <span className="admin-profile-badge">{profile?.role}</span>
+                <span className={`admin-profile-badge ${profile?.status === 'ACTIVE' ? 'is-active' : 'is-blocked'}`}>
+                  {profile?.status}
+                </span>
               </div>
-            )}
+            </div>
           </div>
 
-          <div className="admin-profile-hero-copy">
-            <span className="admin-profile-kicker">Smart Parking Admin</span>
-            <h2 className="page-title">Admin Profile</h2>
-            <p className="subtitle">Manage your account details, profile photo, and password from one secure place.</p>
-            <div className="admin-profile-badges">
-              <span className="admin-profile-badge">{profile?.role}</span>
-              <span className={`admin-profile-badge ${profile?.status === 'ACTIVE' ? 'is-active' : 'is-blocked'}`}>
-                {profile?.status}
-              </span>
+          <div className="admin-profile-header-photo-card">
+            <span className="admin-profile-header-photo-label">Profile Photo</span>
+            <strong>{photoFileName || (profile?.profilePhotoUrl ? 'Photo selected' : 'No photo selected')}</strong>
+            <p>Upload PNG, JPG, or WEBP image.<br />Recommended size: 400×400 px.</p>
+            <input
+              ref={photoInputRef}
+              id="admin-profile-photo-input"
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              onChange={handlePhotoSelection}
+              hidden
+            />
+            <button type="button" className="admin-profile-header-choose" onClick={handlePhotoButtonClick}>
+              <span aria-hidden="true">↥</span> Choose Photo
+            </button>
+            <div className="admin-profile-header-photo-actions">
+              <button type="button" onClick={handlePhotoUpload} disabled={submittingPhoto || !photoFile}>
+                {submittingPhoto ? 'Updating...' : 'Update Photo'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmPhotoDelete(true)}
+                disabled={submittingPhoto || (!profile?.profilePhotoUrl && !photoPreview)}
+              >
+                Remove Photo
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="admin-profile-meta-grid">
-          <div className="admin-profile-meta-card">
-            <span className="admin-profile-meta-label">Email Address</span>
-            <strong>{profile?.email}</strong>
-          </div>
-          <div className="admin-profile-meta-card">
-            <span className="admin-profile-meta-label">Phone Number</span>
-            <strong>{profile?.phone || 'Not added yet'}</strong>
-          </div>
-          <div className="admin-profile-meta-card">
-            <span className="admin-profile-meta-label">Last Login</span>
-            <strong>{formatDateTime(profile?.lastLogin)}</strong>
-          </div>
-          <div className="admin-profile-meta-card">
-            <span className="admin-profile-meta-label">Account Created</span>
-            <strong>{formatDateTime(profile?.createdAt)}</strong>
-          </div>
-        </div>
       </div>
 
       {pageError && <div className="card error-text admin-profile-alert">{pageError}</div>}
@@ -320,66 +328,6 @@ export default function AdminProfile() {
       {photoMessage && <div className="card admin-profile-alert admin-profile-success">{photoMessage}</div>}
 
       <div className="admin-profile-grid">
-        <section className="card admin-profile-card admin-profile-card--wide">
-          <div className="admin-profile-section-head">
-            <div>
-              <h3>Profile Photo</h3>
-              <p>Keep your admin account photo compact, clean, and easy to identify.</p>
-            </div>
-          </div>
-
-          <div className="admin-profile-photo-panel">
-            <div className="admin-profile-photo-preview">
-              {photoPreview || profile?.profilePhotoUrl ? (
-                <img
-                  src={photoPreview || getPhotoUrl(profile?.profilePhotoUrl)}
-                  alt={formatDisplayName(profile?.name, 'Admin')}
-                  className="admin-profile-photo-large"
-                />
-              ) : (
-                <div className="admin-profile-photo-large admin-profile-avatar-fallback">
-                  {(profile?.name || 'A').charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            <div className="admin-profile-photo-actions">
-              <div className="admin-profile-upload-row">
-                <input
-                  ref={photoInputRef}
-                  className="admin-profile-file-input"
-                  id="admin-profile-photo-input"
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                  onChange={handlePhotoSelection}
-                />
-                <button type="button" className="btn btn-secondary admin-profile-choose-btn" onClick={handlePhotoButtonClick}>
-                  Choose Photo
-                </button>
-                <div className="admin-profile-file-name" title={photoFileName || 'No file chosen'}>
-                  {photoFileName || 'No file chosen'}
-                </div>
-              </div>
-              <div className="admin-profile-action-row">
-                <p className="admin-profile-helper">Accepted formats: JPG, JPEG, PNG, WEBP. Max size: 5 MB.</p>
-                <div className="manage-slots-actions admin-profile-photo-buttons">
-                  <button type="button" className="btn" onClick={handlePhotoUpload} disabled={submittingPhoto || !photoFile}>
-                    {submittingPhoto ? 'Updating...' : 'Update Photo'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setConfirmPhotoDelete(true)}
-                    disabled={submittingPhoto || (!profile?.profilePhotoUrl && !photoPreview)}
-                  >
-                    Remove Photo
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section className="card admin-profile-action-card">
           <div className="admin-profile-action-icon-wrap">
             <EditProfileIcon />

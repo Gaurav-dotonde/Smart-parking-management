@@ -26,6 +26,18 @@ function StatusBadge({ status }) {
   return <span className={`my-bookings-badge tone-${tone}`}>{text.toLowerCase()}</span>;
 }
 
+function ActionIcon({ type }) {
+  const paths = {
+    view: <><path d="M2.5 12s3.4-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.4 5.5-9.5 5.5S2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
+    pay: <><rect x="3" y="5.5" width="18" height="13" rx="2.5" /><path d="M3 9.5h18M7 14.5h4" /></>,
+    checkin: <><path d="M4 12.5 9 17l11-11" /><path d="M4 5v5M4 5h5" /></>,
+    checkout: <><path d="m15 7 5 5-5 5M20 12H8" /><path d="M11 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6" /></>,
+    cancel: <><circle cx="12" cy="12" r="9" /><path d="m9 9 6 6m0-6-6 6" /></>,
+    extend: <><path d="M12 7v5l3 2" /><path d="M4.5 9A8 8 0 1 1 4 14" /><path d="M4.5 4v5h5" /></>,
+  };
+  return <svg className="my-bookings-action-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[type]}</svg>;
+}
+
 function dateTime(value) {
   return value ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A';
 }
@@ -262,11 +274,11 @@ export default function MyBookings() {
                     <td>
                       <div className="my-bookings-action-cell">
                         <button type="button" className="btn btn-secondary my-bookings-view-btn" onClick={() => navigate(`/bookings/${booking.id}`)}>
-                          View
+                          <ActionIcon type="view" /> View
                         </button>
                         {booking.paymentStatus !== 'PAID' && booking.status !== 'CANCELLED' && (
                           <button type="button" className="btn my-bookings-pay-btn" disabled={!paymentAvailability.allowed} title={paymentAvailability.message} onClick={() => navigate('/user/payment-placeholder', { state: { bookingDraft: booking } })}>
-                            {paymentAvailability.label}
+                            <ActionIcon type="pay" /> {paymentAvailability.label}
                           </button>
                         )}
                         {['RESERVED', 'ACTIVE'].includes(booking.status) && (
@@ -276,7 +288,7 @@ export default function MyBookings() {
                             disabled={statusActionId === booking.id}
                             onClick={() => handleStatusAction(booking, 'CHECK_IN')}
                           >
-                            {statusActionId === booking.id ? 'Updating...' : 'Check-In'}
+                            <ActionIcon type="checkin" /> {statusActionId === booking.id ? 'Updating...' : 'Check-In'}
                           </button>
                         )}
                         {booking.status === 'OCCUPIED' && (
@@ -286,17 +298,17 @@ export default function MyBookings() {
                             disabled={statusActionId === booking.id}
                             onClick={() => handleStatusAction(booking, 'CHECK_OUT')}
                           >
-                            {statusActionId === booking.id ? 'Updating...' : 'Check-Out'}
+                            <ActionIcon type="checkout" /> {statusActionId === booking.id ? 'Updating...' : 'Check-Out'}
                           </button>
                         )}
                         {['RESERVED', 'ACTIVE'].includes(booking.status) && (
                           <button type="button" className="btn btn-danger my-bookings-cancel-btn" onClick={() => handleCancel(booking.id)}>
-                            Cancel
+                            <ActionIcon type="cancel" /> Cancel
                           </button>
                         )}
                         {['ACTIVE', 'OCCUPIED'].includes(booking.status) && (
                           <button type="button" className="btn btn-secondary" onClick={() => { setExtensionTarget(booking); setExtensionMinutes(60); }}>
-                            Extend
+                            <ActionIcon type="extend" /> Extend
                           </button>
                         )}
                       </div>

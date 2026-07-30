@@ -1,6 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getCurrentUser, updateCurrentUser, changeCurrentUserPassword } from '../services/userService';
+import {
+  changeCurrentUserPassword,
+  deleteCurrentUserPhoto,
+  getCurrentUser,
+  updateCurrentUser,
+  uploadCurrentUserPhoto,
+} from '../services/userService';
 import { formatDisplayName } from '../utils/formatDisplayName';
 
 const emptyPasswordForm = { currentPassword: '', newPassword: '', confirmNewPassword: '' };
@@ -20,16 +26,6 @@ function Icon({ name }) {
     close: <path d="m6 6 12 12M18 6 6 18"/>,
   };
   return <svg className="profile-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
-}
-
-function DetailRow({ icon, label, value, badge }) {
-  return (
-    <div className="profile-detail-row">
-      <span className="profile-detail-icon"><Icon name={icon} /></span>
-      <span className="profile-detail-label">{label}</span>
-      {badge ? <span className={`profile-value-badge ${badge}`}>{value}</span> : <strong>{value}</strong>}
-    </div>
-  );
 }
 
 function Modal({ title, description, icon, onClose, children, danger = false }) {
@@ -68,6 +64,10 @@ export default function UserProfile() {
   const [modalError, setModalError] = useState('');
   const [activeModal, setActiveModal] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const photoInputRef = useRef(null);
   const [showPasswords, setShowPasswords] = useState({ currentPassword: false, newPassword: false, confirmNewPassword: false });
 
   useEffect(() => {
@@ -90,8 +90,6 @@ export default function UserProfile() {
   const role = profile?.role || user?.role || 'USER';
   const userId = profile?.id || user?.id;
   const initial = useMemo(() => profileName.trim().charAt(0).toUpperCase() || 'U', [profileName]);
-  const valueOrFallback = (value) => value || 'Not added yet';
-
   const openEditModal = () => {
     setEditForm({ name: profile?.name || '', email: profile?.email || '', phone: profile?.phone || '', vehicleNumber: profile?.vehicleNumber || '' });
     setModalError('');
@@ -149,6 +147,62 @@ export default function UserProfile() {
     }
   };
 
+  const handlePhotoSelection = (event) => {
+    const file = event.target.files?.[0];
+    setPageError('');
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setPageError('Only PNG, JPG, and WEBP images are allowed.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPageError('Profile photo must be 5 MB or smaller.');
+      return;
+    }
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!photoFile) return;
+    setPhotoSaving(true);
+    setPageError('');
+    try {
+      const formData = new FormData();
+      formData.append('photo', photoFile);
+      const response = await uploadCurrentUserPhoto(formData);
+      setProfile(response.data);
+      updateUser({ profilePhoto: response.data.profilePhoto, profilePhotoUrl: response.data.profilePhoto });
+      setPhotoFile(null);
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      setPhotoPreview('');
+      setMessage('Profile photo updated successfully.');
+    } catch (error) {
+      setPageError(error.response?.data?.message || 'Failed to update profile photo.');
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+    setPhotoSaving(true);
+    setPageError('');
+    try {
+      const response = await deleteCurrentUserPhoto();
+      setProfile(response.data);
+      updateUser({ profilePhoto: null, profilePhotoUrl: null });
+      setPhotoFile(null);
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      setPhotoPreview('');
+      setMessage('Profile photo removed successfully.');
+    } catch (error) {
+      setPageError(error.response?.data?.message || 'Failed to remove profile photo.');
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
+
   if (loading) return <div className="profile-page user-page-section"><section className="user-page-card profile-loading">Loading your profile...</section></div>;
 
   return (
@@ -156,56 +210,87 @@ export default function UserProfile() {
       {pageError && <div className="profile-page-alert profile-page-alert-error">{pageError}</div>}
       {message && <div className="profile-page-alert profile-page-alert-success" role="status">{message}</div>}
 
-      <section className="user-page-card profile-hero">
-        <div className="profile-hero-left">
-          <div className="profile-avatar" aria-label={`${profileName} avatar`}>{initial}</div>
-          <div className="profile-hero-copy">
-            <span className="profile-eyebrow">Your account</span>
+      <section className="user-page-card user-profile-overview-card">
+        <div className="user-profile-overview-main">
+          <div className="user-profile-overview-avatar" aria-label={`${profileName} avatar`}>
+            {photoPreview || profile?.profilePhoto ? (
+              <img src={photoPreview || profile.profilePhoto} alt={profileName} />
+            ) : initial}
+          </div>
+          <div className="user-profile-overview-copy">
+            <span className="user-profile-overview-eyebrow">Welcome back,</span>
             <h2>{profileName}</h2>
             <p>{email}</p>
-            <div className="profile-hero-meta">
-              <span><small>Status</small><b className={`profile-status ${accountStatus === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}>{accountStatus}</b></span>
-              <span><small>Role</small><b>{role}</b></span>
-              <span><small>User ID</small><b>{userId ? `#${userId}` : 'Not available'}</b></span>
+            <div className="user-profile-overview-tags">
+              <span>{userId ? `#${String(userId).padStart(4, '0')}` : 'User'}</span>
+              <span>{role}</span>
+              <span>{accountStatus}</span>
+            </div>
+            <div className="user-profile-overview-actions">
+              <button type="button" className="is-edit" onClick={openEditModal}><Icon name="edit" /> Edit Profile</button>
+              <button type="button" className="is-password" onClick={() => { setModalError(''); setActiveModal('password'); }}><Icon name="lock" /> Change Password</button>
             </div>
           </div>
         </div>
-        <button type="button" className="btn profile-hero-edit" onClick={openEditModal}><Icon name="edit" /> Edit Profile</button>
+
+        <div className="user-profile-photo-card">
+          <span>Profile Photo</span>
+          <strong>{photoFile?.name || (profile?.profilePhoto ? 'Photo selected' : 'No photo selected')}</strong>
+          <p>Upload PNG, JPG, or WEBP image.<br />Recommended size: 400×400 px.</p>
+          <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handlePhotoSelection} hidden />
+          <button type="button" className="user-profile-photo-choose" onClick={() => photoInputRef.current?.click()}>↥ &nbsp; Choose Photo</button>
+          <div className="user-profile-photo-actions">
+            <button type="button" onClick={handlePhotoUpload} disabled={!photoFile || photoSaving}>{photoSaving ? 'Updating...' : 'Update Photo'}</button>
+            <button type="button" onClick={handlePhotoRemove} disabled={photoSaving || (!profile?.profilePhoto && !photoPreview)}>Remove Photo</button>
+          </div>
+        </div>
       </section>
 
-      <section className="profile-content-grid">
-        <div className="profile-left-column">
-          <article className="user-page-card profile-details-card">
-            <div className="profile-card-heading"><span className="profile-card-icon"><Icon name="user" /></span><div><h3>Profile Information</h3><p>Your identity and account information.</p></div></div>
-            <DetailRow icon="user" label="Full Name" value={profileName} />
-            <DetailRow icon="id" label="User ID" value={userId ? `#${userId}` : 'Not available'} />
-            <DetailRow icon="shield" label="Account Status" value={accountStatus} badge={accountStatus === 'ACTIVE' ? 'is-active' : 'is-inactive'} />
-            <DetailRow icon="user" label="Role" value={role} badge="is-role" />
-          </article>
+      <section className="user-profile-private-grid">
+        <article className="user-page-card user-profile-private-card">
+          <div className="user-profile-private-heading">
+            <span className="profile-card-icon"><Icon name="user" /></span>
+            <div><h3>Profile Information</h3><p>Manage your personal and account information.</p></div>
+          </div>
+          <div className="user-profile-private-visual is-user"><Icon name="lock" /></div>
+          <strong>Information is private</strong>
+          <p>Your personal details are hidden for security reasons.</p>
+          <button type="button" onClick={openEditModal}><Icon name="eye" /> View / Edit Information</button>
+        </article>
 
-          <article className="user-page-card profile-details-card">
-            <div className="profile-card-heading"><span className="profile-card-icon"><Icon name="mail" /></span><div><h3>Contact Details</h3><p>Information used for your parking account.</p></div></div>
-            <DetailRow icon="mail" label="Email Address" value={email} />
-            <DetailRow icon="phone" label="Phone Number" value={valueOrFallback(profile?.phone || user?.phone)} />
-            <DetailRow icon="car" label="Vehicle Number" value={valueOrFallback(profile?.vehicleNumber || user?.vehicleNumber)} />
-            <p className="profile-info-note">You can update your name, phone number, and vehicle details from Edit Profile.</p>
-          </article>
-        </div>
-
-        <div className="profile-right-column">
-          <article className="user-page-card profile-action-card">
+        <article className="user-page-card user-profile-private-card">
+          <div className="user-profile-private-heading">
             <span className="profile-card-icon"><Icon name="lock" /></span>
-            <div><h3>Password &amp; Security</h3><p>Update your password to keep your account secure.</p></div>
-            <button type="button" className="btn profile-outline-button" onClick={() => { setModalError(''); setActiveModal('password'); }}>Change Password</button>
-          </article>
+            <div><h3>Password &amp; Security</h3><p>Keep your account secure by updating your password.</p></div>
+          </div>
+          <div className="user-profile-private-visual is-lock"><Icon name="lock" /></div>
+          <strong>Secure your account</strong>
+          <p>Choose a strong password to protect your account.</p>
+          <button type="button" onClick={() => { setModalError(''); setActiveModal('password'); }}><Icon name="lock" /> Change Password</button>
+        </article>
 
-          <article className="user-page-card profile-action-card profile-account-actions">
+        <article className="user-page-card user-profile-private-card">
+          <div className="user-profile-private-heading">
+            <span className="profile-card-icon"><Icon name="mail" /></span>
+            <div><h3>Contact Details</h3><p>Manage your contact details securely.</p></div>
+          </div>
+          <div className="user-profile-private-visual is-mail"><Icon name="mail" /></div>
+          <strong>Information is private</strong>
+          <p>Your contact details are hidden for security reasons.</p>
+          <button type="button" onClick={openEditModal}><Icon name="eye" /> View / Edit Contact Details</button>
+        </article>
+
+        <article className="user-page-card user-profile-private-card is-danger">
+          <div className="user-profile-private-heading">
             <span className="profile-card-icon"><Icon name="shield" /></span>
-            <div><h3>Account Actions</h3><p>Manage permanent actions for your parking account.</p></div>
-            <div className="profile-danger-copy"><strong>Delete Account</strong><p>Permanently delete your account and associated data. This action cannot be undone.</p></div>
-            <button type="button" className="profile-delete-outline" onClick={() => { setModalError(''); setActiveModal('delete'); }}><Icon name="trash" /> Delete Account</button>
-          </article>
-        </div>
+            <div><h3>Account Actions</h3><p>Manage permanent actions for your account.</p></div>
+          </div>
+          <div className="user-profile-delete-summary">
+            <span className="user-profile-delete-icon"><Icon name="trash" /></span>
+            <div><strong>Delete Account</strong><p>Permanently delete your account and all associated data. This action cannot be undone.</p></div>
+          </div>
+          <button type="button" className="is-delete" onClick={() => { setModalError(''); setActiveModal('delete'); }}><Icon name="trash" /> Delete Account</button>
+        </article>
       </section>
 
       {activeModal === 'edit' && (

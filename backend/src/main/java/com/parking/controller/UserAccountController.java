@@ -11,12 +11,17 @@ import com.parking.dto.AdminVehicleResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
@@ -48,6 +53,17 @@ public class UserAccountController {
     public ResponseEntity<UserProfileResponse> updateMe(@AuthenticationPrincipal User user,
                                                         @Valid @RequestBody UserProfileUpdateRequest request) {
         return ResponseEntity.ok(userAccountService.updateProfile(user, request));
+    }
+
+    @PostMapping(value = "/me/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserProfileResponse> uploadPhoto(
+            @AuthenticationPrincipal User user, @RequestPart("photo") MultipartFile photo) {
+        return ResponseEntity.ok(userAccountService.uploadProfilePhoto(user, photo));
+    }
+
+    @DeleteMapping("/me/photo")
+    public ResponseEntity<UserProfileResponse> deletePhoto(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(userAccountService.deleteProfilePhoto(user));
     }
 
     @GetMapping("/me/dashboard")

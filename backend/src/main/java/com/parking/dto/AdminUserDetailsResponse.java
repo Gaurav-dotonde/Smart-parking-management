@@ -17,5 +17,6 @@ public class AdminUserDetailsResponse {
     private String accountStatus;
     private long totalBookings;
     private LocalDateTime createdDate;
+    private String profilePhotoUrl;
     private List<AdminUserRecentBookingResponse> recentBookings;
 }
