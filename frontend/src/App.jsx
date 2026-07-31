@@ -94,6 +94,7 @@ export default function App() {
             <Route path="reports" element={<AdminReports />} />
             <Route path="profile" element={<AdminProfile />} />
             <Route path="support" element={<AdminSupport />} />
+            <Route path="support/:ticketId" element={<AdminSupport />} />
           </Route>
         </Routes>
       </BrowserRouter>

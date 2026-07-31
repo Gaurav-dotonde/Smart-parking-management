@@ -103,4 +103,8 @@ public class ParkingLot {
     public String getStatus() {
         return Boolean.TRUE.equals(archived) ? "ARCHIVED" : Boolean.TRUE.equals(active) ? "ACTIVE" : "INACTIVE";
     }
+
+    public String getName() {
+        return name;
+    }
 }
