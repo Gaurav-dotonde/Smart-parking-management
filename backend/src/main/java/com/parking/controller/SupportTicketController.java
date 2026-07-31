@@ -1,11 +1,6 @@
 package com.parking.controller;
 
-import com.parking.dto.SupportReplyRequest;
-import com.parking.dto.SupportSummaryResponse;
-import com.parking.dto.SupportTicketDetailResponse;
-import com.parking.dto.SupportTicketPageResponse;
-import com.parking.dto.SupportTicketRequest;
-import com.parking.dto.SupportTicketUpdateRequest;
+import com.parking.dto.*;
 import com.parking.model.User;
 import com.parking.service.SupportTicketService;
 import jakarta.validation.Valid;
@@ -107,6 +102,16 @@ public class SupportTicketController {
         return ResponseEntity.ok(supportTicketService.closeTicket(user, id));
     }
 
+    @PostMapping("/support/tickets/{id}/reopen")
+    public ResponseEntity<SupportTicketDetailResponse> reopenTicket(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        return ResponseEntity.ok(supportTicketService.reopenAsUser(id, user));
+    }
+
+    @PostMapping("/support/tickets/{id}/cancel")
+    public ResponseEntity<SupportTicketDetailResponse> cancelTicket(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        return ResponseEntity.ok(supportTicketService.cancelAsUser(id, user));
+    }
+
     @GetMapping("/admin/support")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> adminTickets(
@@ -115,17 +120,26 @@ public class SupportTicketController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String priority,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) Long assignedToId,
+            @RequestParam(defaultValue = "false") boolean assignedToMe,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(defaultValue = "updatedAt,desc") String sort,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size
     ) {
         if (page != null || size != null) {
             return ResponseEntity.ok(supportTicketService.getAdminTickets(
+                    user,
                     query,
                     status,
                     category,
                     priority,
-                    date,
+                    assignedToId,
+                    assignedToMe,
+                    from,
+                    to,
+                    sort,
                     page == null ? 0 : page,
                     size == null ? 10 : size
             ));
@@ -177,5 +191,38 @@ public class SupportTicketController {
             @RequestPart(value = "attachments", required = false) List<MultipartFile> attachments
     ) {
         return ResponseEntity.ok(supportTicketService.replyAsAdmin(id, user, request, attachments));
+    }
+
+    @PatchMapping("/admin/support/{id}/assign")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> assign(@AuthenticationPrincipal User user, @PathVariable Long id,
+                                                               @RequestBody SupportAssignRequest request) {
+        return ResponseEntity.ok(supportTicketService.assignTicket(id, user, request.assignedAdminId()));
+    }
+
+    @PostMapping("/admin/support/{id}/internal-notes")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> note(@AuthenticationPrincipal User user, @PathVariable Long id,
+                                                             @Valid @RequestBody SupportInternalNoteRequest request) {
+        return ResponseEntity.ok(supportTicketService.addInternalNote(id, user, request.note()));
+    }
+
+    @PostMapping("/admin/support/{id}/resolve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> resolve(@AuthenticationPrincipal User user, @PathVariable Long id,
+                                                                @Valid @RequestBody SupportResolveRequest request) {
+        return ResponseEntity.ok(supportTicketService.resolveTicket(id, user, request));
+    }
+
+    @PostMapping("/admin/support/{id}/close")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> close(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        return ResponseEntity.ok(supportTicketService.closeAsAdmin(id, user));
+    }
+
+    @PostMapping("/admin/support/{id}/reopen")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SupportTicketDetailResponse> reopen(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        return ResponseEntity.ok(supportTicketService.reopenAsAdmin(id, user));
     }
 }

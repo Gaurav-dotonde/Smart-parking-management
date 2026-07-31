@@ -5,5 +5,6 @@ public enum SupportStatus {
     IN_PROGRESS,
     WAITING_FOR_USER,
     RESOLVED,
-    CLOSED
+    CLOSED,
+    CANCELLED
 }

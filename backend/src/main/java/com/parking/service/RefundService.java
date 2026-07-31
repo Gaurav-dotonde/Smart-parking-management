@@ -363,6 +363,7 @@ public class RefundService {
     private BigDecimal money(BigDecimal value) {
         return Optional.ofNullable(value).orElse(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }
+    private Sort refundSort() { return Sort.by(Sort.Order.desc("createdAt")); }
     private int validPage(int page) { return Math.max(0, page); }
     private int validSize(int size) { return Math.min(100, Math.max(1, size)); }
     private String nextPublicId() { return "RF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT); }
