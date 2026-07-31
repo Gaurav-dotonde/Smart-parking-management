@@ -1,6 +1,7 @@
 package com.parking.repository;
 
 import com.parking.model.SupportStatus;
+import com.parking.model.SupportPriority;
 import com.parking.model.SupportTicket;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -19,5 +20,7 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
     long countByUserId(Long userId);
     long countByUserIdAndStatus(Long userId, SupportStatus status);
     long countByStatus(SupportStatus status);
+    long countByPriority(SupportPriority priority);
+    long countByAssignedToIsNull();
     long countByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 }

@@ -6,9 +6,13 @@ import {
   getAdminSupportTicket,
   updateSupportTicket,
   replyAdminSupportTicket,
+  addSupportInternalNote,
+  resolveSupportTicket,
+  closeAdminSupportTicket,
+  reopenAdminSupportTicket,
 } from '../services/supportService';
 
-const statusOptions = ['ALL', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED', 'CLOSED'];
+const statusOptions = ['ALL', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED', 'CLOSED', 'CANCELLED'];
 const priorityOptions = ['ALL', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
 const statusLabel = (value = 'OPEN') => value.replaceAll('_', ' ');
@@ -27,6 +31,7 @@ const statusClass = {
   WAITING_FOR_USER: 'waiting',
   RESOLVED: 'resolved',
   CLOSED: 'closed',
+  CANCELLED: 'closed',
 };
 
 const formatTicketId = (ticket) => ticket?.ticketNumber || `SUP-${String(ticket?.id || '').padStart(6, '0')}`;
@@ -45,22 +50,21 @@ function buildFormData(payload, files = []) {
 function canTransition(current, next) {
   if (current === next) return true;
   const transitions = {
-    OPEN: ['IN_PROGRESS'],
+    OPEN: ['IN_PROGRESS', 'WAITING_FOR_USER'],
     IN_PROGRESS: ['WAITING_FOR_USER', 'RESOLVED'],
     WAITING_FOR_USER: ['IN_PROGRESS', 'RESOLVED'],
-    RESOLVED: ['CLOSED'],
-    CLOSED: [],
+    RESOLVED: [],
+    CLOSED: [], CANCELLED: [],
   };
   return transitions[current]?.includes(next);
 }
 
 function validTransitions(current) {
   const transitions = {
-    OPEN: ['OPEN', 'IN_PROGRESS'],
-    IN_PROGRESS: ['IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED'],
-    WAITING_FOR_USER: ['WAITING_FOR_USER', 'IN_PROGRESS', 'RESOLVED'],
-    RESOLVED: ['RESOLVED', 'CLOSED'],
-    CLOSED: ['CLOSED'],
+    OPEN: ['OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER'],
+    IN_PROGRESS: ['IN_PROGRESS', 'WAITING_FOR_USER'],
+    WAITING_FOR_USER: ['WAITING_FOR_USER', 'IN_PROGRESS'],
+    RESOLVED: ['RESOLVED'], CLOSED: ['CLOSED'], CANCELLED: ['CANCELLED'],
   };
   return transitions[current] || ['OPEN'];
 }
@@ -68,6 +72,16 @@ function validTransitions(current) {
 function TicketStatus({ status }) {
   const key = status || 'OPEN';
   return <span className={`support-status ${statusClass[key] || 'open'}`}>{statusLabel(key)}</span>;
+}
+
+function SupportSummaryIcon({ type }) {
+  const paths = {
+    OPEN: <><circle cx="12" cy="12" r="7" /><path d="M12 8v4l2.5 2" /></>,
+    IN_PROGRESS: <><circle cx="12" cy="12" r="7" /><path d="M9 12h6M12 9v6" /></>,
+    WAITING_FOR_USER: <><path d="M5 12a7 7 0 1 0 2-5" /><path d="M5 5v4h4" /></>,
+    URGENT: <><path d="M12 4 4 19h16L12 4Z" /><path d="M12 9v4m0 3h.01" /></>,
+  };
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[type] || paths.OPEN}</svg>;
 }
 
 export default function AdminSupport() {
@@ -78,9 +92,8 @@ export default function AdminSupport() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
-  const [dateFilter, setDateFilter] = useState('');
+  const [assigneeFilter, setAssigneeFilter] = useState('ALL');
   const [page, setPage] = useState(0);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -90,6 +103,8 @@ export default function AdminSupport() {
   const [replySaving, setReplySaving] = useState(false);
   const [updateSaving, setUpdateSaving] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [resolutionSummary, setResolutionSummary] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
   const [detailState, setDetailState] = useState({
     status: 'OPEN',
     priority: 'MEDIUM',
@@ -122,9 +137,9 @@ export default function AdminSupport() {
         size: 10,
         query: query || undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
-        category: categoryFilter !== 'ALL' ? categoryFilter : undefined,
           priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
-          date: dateFilter || undefined,
+          assignedToId: assigneeFilter === 'UNASSIGNED' ? -1 : !['ALL', 'ME'].includes(assigneeFilter) ? assigneeFilter : undefined,
+          assignedToMe: assigneeFilter === 'ME' || undefined,
         }),
     ])
       .then(([summaryResponse, ticketsResponse]) => {
@@ -146,21 +161,20 @@ export default function AdminSupport() {
     return () => {
       mounted = false;
     };
-  }, [page, query, statusFilter, categoryFilter, priorityFilter, dateFilter]);
+  }, [page, query, statusFilter, priorityFilter, assigneeFilter]);
 
   const summaryCards = useMemo(() => ([
-    { label: 'Total Tickets', value: summary.totalTickets || 0, tone: 'blue', filter: 'ALL' },
     { label: 'Open', value: summary.open || 0, tone: 'amber', filter: 'OPEN' },
     { label: 'In Progress', value: summary.inProgress || 0, tone: 'orange', filter: 'IN_PROGRESS' },
     { label: 'Waiting For User', value: summary.waitingForUser || 0, tone: 'purple', filter: 'WAITING_FOR_USER' },
-    { label: 'Resolved', value: summary.resolved || 0, tone: 'green', filter: 'RESOLVED' },
-    { label: 'Closed', value: summary.closed || 0, tone: 'gray', filter: 'CLOSED' },
-    { label: "Today's Tickets", value: summary.todayTickets || 0, tone: 'blue', filter: 'ALL' },
+    { label: 'Urgent', value: summary.urgent || 0, tone: 'amber', filter: 'ALL', priority: 'URGENT' },
   ]), [summary]);
 
   const handleSummaryCardClick = (card) => {
     setPage(0);
     setStatusFilter(card.filter);
+    setPriorityFilter(card.priority || 'ALL');
+    setAssigneeFilter(card.assignee || 'ALL');
     requestAnimationFrame(() => {
       tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -177,10 +191,11 @@ export default function AdminSupport() {
         status: detail?.status || 'OPEN',
         priority: detail?.priority || 'MEDIUM',
         assignedToId: detail?.assignedToName ? String(adminUsers.find((user) => user.name === detail.assignedToName)?.id || '') : '',
-        internalNotes: detail?.internalNotes || '',
+        internalNotes: '',
       });
       setReplyText('');
       setReplyFiles([]);
+      setResolutionSummary(detail?.resolutionSummary || '');
     } catch (err) {
       setDetailError(err.response?.data?.message || 'Could not open ticket.');
     } finally {
@@ -236,6 +251,29 @@ export default function AdminSupport() {
 
   const selectedStatusOptions = validTransitions(selectedTicket?.status || 'OPEN');
 
+  const runAction = async (action, successMessage) => {
+    if (!selectedTicket || actionSaving) return;
+    setActionSaving(true); setDetailError('');
+    try {
+      const response = await action();
+      setSelectedTicket(response.data);
+      setDetailState((current) => ({ ...current, status: response.data.status, internalNotes: '' }));
+      await loadData(page);
+      window.alert(successMessage);
+    } catch (err) { setDetailError(err.response?.data?.message || 'Could not complete this action.'); }
+    finally { setActionSaving(false); }
+  };
+
+  const resolveCurrent = () => {
+    if (!resolutionSummary.trim()) return setDetailError('Resolution summary is required.');
+    return runAction(() => resolveSupportTicket(selectedTicket.id, { resolutionSummary: resolutionSummary.trim() }), 'Ticket resolved successfully.');
+  };
+
+  const closeCurrent = () => {
+    if (!window.confirm('Close this resolved ticket?')) return;
+    runAction(() => closeAdminSupportTicket(selectedTicket.id), 'Ticket closed successfully.');
+  };
+
   return (
     <div className="admin-support-page">
       <section className="support-admin-hero">
@@ -266,7 +304,7 @@ export default function AdminSupport() {
               }
             }}
           >
-            <span className="support-stat-icon">{card.label === 'Closed' ? '✓' : card.label === 'Waiting For User' ? '↺' : card.label === "Today's Tickets" ? '⌁' : '•'}</span>
+            <span className="support-stat-icon"><SupportSummaryIcon type={card.filter === 'ALL' ? 'URGENT' : card.filter} /></span>
             <div>
               <small>{card.label}</small>
               <strong>{loading ? '...' : card.value}</strong>
@@ -287,31 +325,21 @@ export default function AdminSupport() {
 
         <div className="support-admin-toolbar">
           <label className="support-admin-search">
-            <span>⌕</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
             <input value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} placeholder="Search ticket, user, email, booking or subject..." />
           </label>
           <div className="support-admin-filters support-admin-filters-wrap">
             <select value={statusFilter} onChange={(event) => { setPage(0); setStatusFilter(event.target.value); }}>
               {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
             </select>
-            <select value={categoryFilter} onChange={(event) => { setPage(0); setCategoryFilter(event.target.value); }}>
-              <option value="ALL">All Categories</option>
-              {[
-                'PAYMENT_ISSUE',
-                'BOOKING_ISSUE',
-                'REFUND_ISSUE',
-                'CHECK_IN_ISSUE',
-                'CHECK_OUT_ISSUE',
-                'PARKING_SLOT_ISSUE',
-                'TECHNICAL_ISSUE',
-                'ACCOUNT_ISSUE',
-                'OTHER',
-              ].map((category) => <option key={category} value={category}>{categoryLabel(category)}</option>)}
-            </select>
+
             <select value={priorityFilter} onChange={(event) => { setPage(0); setPriorityFilter(event.target.value); }}>
               {priorityOptions.map((priority) => <option key={priority} value={priority}>{priority === 'ALL' ? 'All Priorities' : priority}</option>)}
             </select>
-            <input type="date" value={dateFilter} onChange={(event) => { setPage(0); setDateFilter(event.target.value); }} />
+            <select value={assigneeFilter} onChange={(event) => { setPage(0); setAssigneeFilter(event.target.value); }}>
+              <option value="ALL">All Assignees</option><option value="ME">Assigned to me</option><option value="UNASSIGNED">Unassigned</option>
+              {adminUsers.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+            </select>
           </div>
         </div>
 
@@ -319,7 +347,7 @@ export default function AdminSupport() {
         {listLoading ? (
           <div className="support-admin-loading"><span className="booking-details-spinner" /><p>Loading support tickets...</p></div>
         ) : ticketsPage.content?.length === 0 ? (
-          <div className="support-admin-empty"><span>✓</span><h3>No tickets found</h3><p>No support requests match this view.</p></div>
+          <div className="support-admin-empty"><span>OK</span><h3>No tickets found</h3><p>No support requests match this view.</p></div>
         ) : (
           <div ref={tableRef} className="dashboard-table-wrap admin-responsive-table support-admin-table-wrap">
             <table className="dashboard-table support-admin-table">
@@ -346,8 +374,8 @@ export default function AdminSupport() {
                       <div className="payments-subline">{ticket.userEmail}</div>
                     </td>
                     <td>{categoryLabel(ticket.category)}</td>
-                    <td>{ticket.bookingId || '—'}</td>
-                    <td>{ticket.transactionId || '—'}</td>
+                    <td>{ticket.bookingId || 'N/A'}</td>
+                    <td>{ticket.transactionId || 'N/A'}</td>
                     <td>{ticket.priority}</td>
                     <td><TicketStatus status={ticket.status} /></td>
                     <td>{formatDateTime(ticket.createdAt)}</td>
@@ -382,7 +410,7 @@ export default function AdminSupport() {
                 <span>{formatTicketId(selectedTicket)}</span>
                 <h3>{selectedTicket.subject}</h3>
               </div>
-              <button type="button" onClick={() => setSelectedTicket(null)}>×</button>
+              <button type="button" onClick={() => setSelectedTicket(null)} aria-label="Close">&times;</button>
             </div>
 
             {detailLoading ? (
@@ -395,18 +423,21 @@ export default function AdminSupport() {
                   <div className="support-ticket-avatar">{(selectedTicket.userName || 'User').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</div>
                   <div>
                     <strong>{selectedTicket.userName}</strong>
-                    <span>{selectedTicket.userEmail} · {categoryLabel(selectedTicket.category)}</span>
+                    <span>{selectedTicket.userEmail} &middot; {categoryLabel(selectedTicket.category)}</span>
                   </div>
                   <TicketStatus status={selectedTicket.status} />
                 </div>
 
                 <div className="support-ticket-meta-grid">
                   <div><strong>Ticket ID</strong><span>{formatTicketId(selectedTicket)}</span></div>
-                  <div><strong>Booking ID</strong><span>{selectedTicket.bookingId || '—'}</span></div>
-                  <div><strong>Transaction ID</strong><span>{selectedTicket.transactionId || '—'}</span></div>
+                  <div><strong>Booking ID</strong><span>{selectedTicket.bookingId || 'N/A'}</span></div>
+                  <div><strong>Transaction ID</strong><span>{selectedTicket.transactionId || 'N/A'}</span></div>
                   <div><strong>Created Date</strong><span>{formatDateTime(selectedTicket.createdAt)}</span></div>
                   <div><strong>Last Updated</strong><span>{formatDateTime(selectedTicket.updatedAt || selectedTicket.createdAt)}</span></div>
                   <div><strong>Priority</strong><span>{selectedTicket.priority}</span></div>
+                  <div><strong>Assigned Admin</strong><span>{selectedTicket.assignedToName || 'Unassigned'}</span></div>
+                  <div><strong>Resolved Date</strong><span>{formatDateTime(selectedTicket.resolvedAt)}</span></div>
+                  <div><strong>Closed Date</strong><span>{formatDateTime(selectedTicket.closedAt)}</span></div>
                 </div>
 
                 <div className="support-review-message">
@@ -446,10 +477,14 @@ export default function AdminSupport() {
                     </select>
                   </label>
                   <label className="support-full-width">
-                    Internal Notes
+                    Add Internal Note
                     <textarea rows={4} value={detailState.internalNotes} onChange={(event) => setDetailState((current) => ({ ...current, internalNotes: event.target.value }))} placeholder="Internal notes for the admin team only" />
                   </label>
                 </div>
+
+                {selectedTicket.internalNotes?.length > 0 && <div className="support-message-block"><span>Internal note history</span>{selectedTicket.internalNotes.map((note) => <p key={note.id}><strong>{note.authorName}</strong> &middot; {formatDateTime(note.createdAt)}<br />{note.note}</p>)}</div>}
+
+                {selectedTicket.resolutionSummary && <div className="support-message-block"><span>Resolution Summary</span><p>{selectedTicket.resolutionSummary}</p></div>}
 
                 <div className="support-conversation">
                   <h4>Conversation</h4>
@@ -489,10 +524,29 @@ export default function AdminSupport() {
                   <button type="button" className="btn btn-secondary" disabled={updateSaving} onClick={handleUpdate}>
                     {updateSaving ? 'Saving...' : 'Save Changes'}
                   </button>
-                  <button type="button" className="btn" disabled={replySaving} onClick={sendReply}>
+                  {selectedTicket.canReply && <button type="button" className="btn" disabled={replySaving} onClick={sendReply}>
                     {replySaving ? 'Sending...' : 'Send Reply'}
-                  </button>
+                  </button>}
                 </div>
+
+                <div className="support-conversation">
+                  <h4>Activity Timeline</h4>
+                  {selectedTicket.history?.map((item) => <article key={item.id} className="support-conversation-item">
+                    <div className="support-conversation-meta"><strong>{item.changedByName}</strong><span>{item.previousStatus || 'NEW'} to {item.newStatus}</span><time>{formatDateTime(item.createdAt)}</time></div>
+                    <p>{item.note}</p>
+                  </article>)}
+                </div>
+
+                {['OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER'].includes(selectedTicket.status) && <div className="support-message-block">
+                  <span>Resolve Ticket</span>
+                  <textarea rows={3} value={resolutionSummary} onChange={(event) => setResolutionSummary(event.target.value)} placeholder="Required resolution summary" />
+                  <button type="button" className="btn" disabled={actionSaving} onClick={resolveCurrent}>{actionSaving ? 'Resolving...' : 'Resolve Ticket'}</button>
+                </div>}
+                {selectedTicket.status === 'RESOLVED' && <div className="support-modal-actions">
+                  <button type="button" className="btn btn-secondary" disabled={actionSaving} onClick={() => runAction(() => reopenAdminSupportTicket(selectedTicket.id), 'Ticket reopened successfully.')}>Reopen Ticket</button>
+                  <button type="button" className="btn" disabled={actionSaving} onClick={closeCurrent}>Close Ticket</button>
+                </div>}
+                {selectedTicket.status === 'CLOSED' && <button type="button" className="btn btn-secondary" disabled={actionSaving} onClick={() => runAction(() => reopenAdminSupportTicket(selectedTicket.id), 'Ticket reopened successfully.')}>Reopen Ticket</button>}
               </>
             )}
           </div>
@@ -501,3 +555,4 @@ export default function AdminSupport() {
     </div>
   );
 }
+
