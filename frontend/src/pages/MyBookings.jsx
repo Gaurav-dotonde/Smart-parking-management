@@ -331,7 +331,7 @@ export default function MyBookings() {
       </section>
       {extensionTarget && (
         <div className="modal-backdrop">
-          <div className="modal-card">
+          <div className="modal-card user-booking-extension-modal">
             <div className="dashboard-section-head"><h3>Extend Booking</h3><button type="button" className="modal-close" onClick={() => setExtensionTarget(null)}>×</button></div>
             <div className="booking-details-grid">
               <div><strong>Booking ID:</strong> #{extensionTarget.id}</div>
