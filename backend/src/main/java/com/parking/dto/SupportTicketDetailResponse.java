@@ -18,13 +18,20 @@ public record SupportTicketDetailResponse(
         String priority,
         String assignedToName,
         String assignedToEmail,
-        String internalNotes,
+        Long assignedToId,
+        LocalDateTime assignedAt,
+        String resolutionSummary,
+        LocalDateTime resolvedAt,
+        String resolvedByName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         LocalDateTime closedAt,
+        String closedByName,
         List<SupportMessageResponse> messages,
         List<SupportAttachmentResponse> attachments,
         List<SupportStatusHistoryResponse> history,
+        List<SupportInternalNoteResponse> internalNotes,
         boolean canReply,
-        boolean canClose
+        boolean canClose,
+        boolean canReopen
 ) {}

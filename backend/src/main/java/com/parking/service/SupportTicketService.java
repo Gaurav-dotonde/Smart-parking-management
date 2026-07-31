@@ -43,6 +43,7 @@ public class SupportTicketService {
     private final SupportMessageRepository messageRepository;
     private final SupportAttachmentRepository attachmentRepository;
     private final SupportStatusHistoryRepository historyRepository;
+    private final SupportInternalNoteRepository internalNoteRepository;
     private final UserRepository userRepository;
 
     public SupportTicketDetailResponse createTicket(User currentUser, SupportTicketRequest request, List<MultipartFile> files) {
@@ -90,7 +91,8 @@ public class SupportTicketService {
                 ticketRepository.countByUserIdAndStatus(managedUser.getId(), SupportStatus.WAITING_FOR_USER),
                 ticketRepository.countByUserIdAndStatus(managedUser.getId(), SupportStatus.RESOLVED),
                 ticketRepository.countByUserIdAndStatus(managedUser.getId(), SupportStatus.CLOSED),
-                0
+                0, 0, 0,
+                ticketRepository.countByUserIdAndStatus(managedUser.getId(), SupportStatus.CANCELLED)
         );
     }
 
@@ -105,11 +107,11 @@ public class SupportTicketService {
         User managedUser = requireManagedUser(currentUser);
         SupportTicket ticket = ticketRepository.findByIdAndUserId(ticketId, managedUser.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
-        if (ticket.getStatus() == SupportStatus.CLOSED) {
-            throw new IllegalStateException("Closed tickets cannot receive more replies.");
+        if (!Set.of(SupportStatus.OPEN, SupportStatus.IN_PROGRESS, SupportStatus.WAITING_FOR_USER).contains(ticket.getStatus())) {
+            throw new IllegalStateException("This ticket must be reopened before another reply can be sent.");
         }
         SupportStatus previous = ticket.getStatus();
-        if (ticket.getStatus() == SupportStatus.WAITING_FOR_USER || ticket.getStatus() == SupportStatus.RESOLVED) {
+        if (ticket.getStatus() == SupportStatus.WAITING_FOR_USER) {
             ticket.setStatus(SupportStatus.IN_PROGRESS);
         }
         SupportMessage message = saveMessage(ticket, managedUser, SupportMessageRole.USER, trimToNull(request.message()), false);
@@ -133,9 +135,13 @@ public class SupportTicketService {
         return toDetail(ticket, managedUser, false);
     }
 
-    public SupportTicketPageResponse getAdminTickets(String query, String status, String category, String priority, LocalDate date, int page, int size) {
-        List<SupportTicket> tickets = ticketRepository.findAll(adminSpecification(query, status, category, priority, date));
-        tickets = sortTickets(tickets);
+    public SupportTicketPageResponse getAdminTickets(User adminUser, String query, String status, String category, String priority,
+                                                      Long assignedToId, boolean assignedToMe, LocalDate from, LocalDate to,
+                                                      String sort, int page, int size) {
+        User admin = requireAdminUser(adminUser);
+        Long effectiveAssignee = assignedToMe ? admin.getId() : assignedToId;
+        List<SupportTicket> tickets = ticketRepository.findAll(adminSpecification(query, status, category, priority, effectiveAssignee, from, to));
+        tickets = sortTickets(tickets, sort);
         return toPage(tickets, Math.max(page, 0), clampPageSize(size), true);
     }
 
@@ -154,7 +160,10 @@ public class SupportTicketService {
                 ticketRepository.countByStatus(SupportStatus.WAITING_FOR_USER),
                 ticketRepository.countByStatus(SupportStatus.RESOLVED),
                 ticketRepository.countByStatus(SupportStatus.CLOSED),
-                ticketRepository.countByCreatedAtBetween(from, to)
+                ticketRepository.countByCreatedAtBetween(from, to),
+                ticketRepository.countByPriority(SupportPriority.URGENT),
+                ticketRepository.countByAssignedToIsNull(),
+                ticketRepository.countByStatus(SupportStatus.CANCELLED)
         );
     }
 
@@ -173,15 +182,15 @@ public class SupportTicketService {
         if (request.priority() != null && !request.priority().isBlank()) {
             ticket.setPriority(parsePriority(request.priority()));
         }
-        if (request.assignedToId() != null) {
-            ticket.setAssignedTo(userRepository.findById(request.assignedToId())
-                    .orElseThrow(() -> new IllegalArgumentException("Assigned user not found.")));
-        }
+        assign(ticket, request.assignedToId(), managedAdmin);
         if (request.internalNotes() != null) {
-            ticket.setInternalNotes(trimToNull(request.internalNotes()));
+            addInternalNote(ticket, managedAdmin, request.internalNotes());
         }
         if (request.status() != null && !request.status().isBlank()) {
             SupportStatus target = parseStatus(request.status());
+            if (target == SupportStatus.RESOLVED || target == SupportStatus.CLOSED) {
+                throw new IllegalArgumentException("Use the dedicated resolve or close action for this status.");
+            }
             transitionStatus(ticket, target);
         }
         ticket = ticketRepository.save(ticket);
@@ -191,12 +200,86 @@ public class SupportTicketService {
         return toDetail(ticket, managedAdmin, true);
     }
 
+    public SupportTicketDetailResponse assignTicket(Long ticketId, User adminUser, Long assigneeId) {
+        User admin = requireAdminUser(adminUser);
+        SupportTicket ticket = requireTicket(ticketId);
+        assign(ticket, assigneeId, admin);
+        return toDetail(ticketRepository.save(ticket), admin, true);
+    }
+
+    public SupportTicketDetailResponse addInternalNote(Long ticketId, User adminUser, String note) {
+        User admin = requireAdminUser(adminUser);
+        SupportTicket ticket = requireTicket(ticketId);
+        addInternalNote(ticket, admin, note);
+        return toDetail(ticket, admin, true);
+    }
+
+    public SupportTicketDetailResponse resolveTicket(Long ticketId, User adminUser, SupportResolveRequest request) {
+        User admin = requireAdminUser(adminUser);
+        SupportTicket ticket = requireTicket(ticketId);
+        String summary = trimToNull(request.resolutionSummary());
+        if (summary == null) throw new IllegalArgumentException("Resolution summary is required.");
+        SupportStatus previous = ticket.getStatus();
+        transitionStatus(ticket, SupportStatus.RESOLVED);
+        ticket.setResolutionSummary(summary);
+        ticket.setResolvedAt(LocalDateTime.now());
+        ticket.setResolvedBy(admin);
+        ticket.setClosedAt(null);
+        ticket.setClosedBy(null);
+        String reply = trimToNull(request.reply());
+        if (reply != null) saveMessage(ticket, admin, SupportMessageRole.ADMIN, reply, false);
+        ticketRepository.save(ticket);
+        recordHistory(ticket, previous, SupportStatus.RESOLVED, admin, "Ticket resolved: " + summary);
+        return toDetail(ticket, admin, true);
+    }
+
+    public SupportTicketDetailResponse closeAsAdmin(Long ticketId, User adminUser) {
+        User admin = requireAdminUser(adminUser);
+        SupportTicket ticket = requireTicket(ticketId);
+        SupportStatus previous = ticket.getStatus();
+        transitionStatus(ticket, SupportStatus.CLOSED);
+        ticket.setClosedAt(LocalDateTime.now());
+        ticket.setClosedBy(admin);
+        ticketRepository.save(ticket);
+        recordHistory(ticket, previous, SupportStatus.CLOSED, admin, "Ticket closed by admin.");
+        return toDetail(ticket, admin, true);
+    }
+
+    public SupportTicketDetailResponse reopenAsAdmin(Long ticketId, User adminUser) {
+        User admin = requireAdminUser(adminUser);
+        return reopen(requireTicket(ticketId), admin, true);
+    }
+
+    public SupportTicketDetailResponse reopenAsUser(Long ticketId, User currentUser) {
+        User user = requireManagedUser(currentUser);
+        SupportTicket ticket = ticketRepository.findByIdAndUserId(ticketId, user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
+        if (ticket.getStatus() != SupportStatus.RESOLVED || ticket.getResolvedAt() == null
+                || ticket.getResolvedAt().plusDays(7).isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Resolved tickets can only be reopened within 7 days.");
+        }
+        return reopen(ticket, user, false);
+    }
+
+    public SupportTicketDetailResponse cancelAsUser(Long ticketId, User currentUser) {
+        User user = requireManagedUser(currentUser);
+        SupportTicket ticket = ticketRepository.findByIdAndUserId(ticketId, user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
+        if (!Set.of(SupportStatus.OPEN, SupportStatus.IN_PROGRESS, SupportStatus.WAITING_FOR_USER).contains(ticket.getStatus()))
+            throw new IllegalStateException("This ticket cannot be cancelled in its current status.");
+        SupportStatus previous = ticket.getStatus();
+        ticket.setStatus(SupportStatus.CANCELLED);
+        ticketRepository.save(ticket);
+        recordHistory(ticket, previous, SupportStatus.CANCELLED, user, "Ticket cancelled by user.");
+        return toDetail(ticket, user, false);
+    }
+
     public SupportTicketDetailResponse replyAsAdmin(Long ticketId, User adminUser, SupportReplyRequest request, List<MultipartFile> files) {
         User managedAdmin = requireAdminUser(adminUser);
         SupportTicket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
-        if (ticket.getStatus() == SupportStatus.CLOSED) {
-            throw new IllegalStateException("Closed tickets cannot receive more replies.");
+        if (ticket.getStatus() == SupportStatus.CLOSED || ticket.getStatus() == SupportStatus.CANCELLED) {
+            throw new IllegalStateException("Reopen this ticket before replying.");
         }
         SupportStatus previous = ticket.getStatus();
         if (ticket.getAssignedTo() == null) {
@@ -228,11 +311,35 @@ public class SupportTicketService {
     }
 
     private List<SupportTicket> sortTickets(List<SupportTicket> tickets) {
+        return sortTickets(tickets, "updatedAt,desc");
+    }
+
+    private List<SupportTicket> sortTickets(List<SupportTicket> tickets, String sort) {
+        boolean created = sort != null && sort.toLowerCase(Locale.ROOT).startsWith("created");
+        boolean ascending = sort != null && sort.toLowerCase(Locale.ROOT).endsWith("asc");
+        Comparator<SupportTicket> comparator = (left, right) -> compareNullableDate(
+                created ? left.getCreatedAt() : left.getUpdatedAt(),
+                created ? right.getCreatedAt() : right.getUpdatedAt(),
+                ascending);
         return tickets.stream()
-                .sorted(Comparator
-                        .comparing((SupportTicket ticket) -> ticket.getUpdatedAt(), Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(ticket -> ticket.getId(), Comparator.reverseOrder()))
+                .sorted(comparator.thenComparing((left, right) -> compareNullableLong(left.getId(), right.getId(), ascending)))
                 .toList();
+    }
+
+    private int compareNullableDate(LocalDateTime left, LocalDateTime right, boolean ascending) {
+        if (left == null && right == null) return 0;
+        if (left == null) return 1;
+        if (right == null) return -1;
+        int result = left.compareTo(right);
+        return ascending ? result : -result;
+    }
+
+    private int compareNullableLong(Long left, Long right, boolean ascending) {
+        if (left == null && right == null) return 0;
+        if (left == null) return 1;
+        if (right == null) return -1;
+        int result = left.compareTo(right);
+        return ascending ? result : -result;
     }
 
     private SupportTicketResponse toListResponse(SupportTicket ticket, boolean adminView) {
@@ -273,6 +380,13 @@ public class SupportTicketService {
                 .map(this::toHistoryResponse)
                 .toList();
         User assignedTo = ticket.getAssignedTo();
+        List<SupportInternalNoteResponse> noteResponses = new ArrayList<>();
+        if (adminView && trimToNull(ticket.getLegacyInternalNotes()) != null) {
+            noteResponses.add(new SupportInternalNoteResponse(-ticket.getId(), null, "Legacy note", ticket.getLegacyInternalNotes(), ticket.getCreatedAt()));
+        }
+        if (adminView) internalNoteRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
+                .map(note -> new SupportInternalNoteResponse(note.getId(), note.getAdmin().getId(), note.getAdmin().getName(), note.getNote(), note.getCreatedAt()))
+                .forEach(noteResponses::add);
         return new SupportTicketDetailResponse(
                 ticket.getId(),
                 ticket.getTicketNumber(),
@@ -288,15 +402,23 @@ public class SupportTicketService {
                 ticket.getPriority().name(),
                 assignedTo == null ? null : assignedTo.getName(),
                 assignedTo == null ? null : assignedTo.getEmail(),
-                adminView ? ticket.getInternalNotes() : null,
+                assignedTo == null ? null : assignedTo.getId(),
+                ticket.getAssignedAt(),
+                ticket.getResolutionSummary(),
+                ticket.getResolvedAt(),
+                ticket.getResolvedBy() == null ? null : ticket.getResolvedBy().getName(),
                 ticket.getCreatedAt(),
                 ticket.getUpdatedAt(),
                 ticket.getClosedAt(),
+                ticket.getClosedBy() == null ? null : ticket.getClosedBy().getName(),
                 messages,
                 attachments,
                 history,
-                ticket.getStatus() != SupportStatus.CLOSED,
-                ticket.getStatus() == SupportStatus.RESOLVED
+                noteResponses,
+                Set.of(SupportStatus.OPEN, SupportStatus.IN_PROGRESS, SupportStatus.WAITING_FOR_USER).contains(ticket.getStatus()),
+                ticket.getStatus() == SupportStatus.RESOLVED,
+                ticket.getStatus() == SupportStatus.RESOLVED && ticket.getResolvedAt() != null
+                        && !ticket.getResolvedAt().plusDays(7).isBefore(LocalDateTime.now())
         );
     }
 
@@ -362,6 +484,8 @@ public class SupportTicketService {
                 }
                 validateAttachment(file);
                 String extension = getExtension(file.getOriginalFilename());
+                String originalFileName = Paths.get(Optional.ofNullable(file.getOriginalFilename()).orElse("attachment"))
+                        .getFileName().toString().replaceAll("[^A-Za-z0-9._ -]", "_");
                 String storedFileName = UUID.randomUUID() + extension;
                 Path target = uploadDir.resolve(storedFileName);
                 Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
@@ -369,7 +493,7 @@ public class SupportTicketService {
                         .ticket(ticket)
                         .message(message)
                         .uploadedBy(uploader)
-                        .originalFileName(file.getOriginalFilename())
+                        .originalFileName(originalFileName)
                         .storedFileName(storedFileName)
                         .fileUrl("/uploads/support/" + ticket.getTicketNumber() + "/" + storedFileName)
                         .contentType(file.getContentType())
@@ -410,12 +534,53 @@ public class SupportTicketService {
 
     private boolean isValidTransition(SupportStatus current, SupportStatus target) {
         return switch (current) {
-            case OPEN -> target == SupportStatus.IN_PROGRESS;
+            case OPEN -> target == SupportStatus.IN_PROGRESS || target == SupportStatus.WAITING_FOR_USER || target == SupportStatus.RESOLVED;
             case IN_PROGRESS -> target == SupportStatus.WAITING_FOR_USER || target == SupportStatus.RESOLVED;
             case WAITING_FOR_USER -> target == SupportStatus.IN_PROGRESS || target == SupportStatus.RESOLVED;
-            case RESOLVED -> target == SupportStatus.CLOSED;
-            case CLOSED -> false;
+            case RESOLVED -> target == SupportStatus.CLOSED || target == SupportStatus.IN_PROGRESS;
+            case CLOSED -> target == SupportStatus.IN_PROGRESS;
+            case CANCELLED -> false;
         };
+    }
+
+    private SupportTicket requireTicket(Long ticketId) {
+        return ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
+    }
+
+    private void assign(SupportTicket ticket, Long assigneeId, User actor) {
+        User previous = ticket.getAssignedTo();
+        User assignee = null;
+        if (assigneeId != null) {
+            assignee = userRepository.findById(assigneeId)
+                    .orElseThrow(() -> new IllegalArgumentException("Assigned admin not found."));
+            if (assignee.getRole() != Role.ADMIN || assignee.isArchived()) {
+                throw new IllegalArgumentException("Assignee must be an active admin.");
+            }
+        }
+        if (!Objects.equals(previous == null ? null : previous.getId(), assignee == null ? null : assignee.getId())) {
+            ticket.setAssignedTo(assignee);
+            ticket.setAssignedAt(assignee == null ? null : LocalDateTime.now());
+            recordHistory(ticket, ticket.getStatus(), ticket.getStatus(), actor,
+                    assignee == null ? "Ticket unassigned." : "Ticket assigned to " + assignee.getName() + ".");
+        }
+    }
+
+    private void addInternalNote(SupportTicket ticket, User admin, String text) {
+        String note = trimToNull(text);
+        if (note == null) return;
+        internalNoteRepository.save(SupportInternalNote.builder().ticket(ticket).admin(admin).note(note).build());
+        recordHistory(ticket, ticket.getStatus(), ticket.getStatus(), admin, "Internal note added.");
+    }
+
+    private SupportTicketDetailResponse reopen(SupportTicket ticket, User actor, boolean adminView) {
+        SupportStatus previous = ticket.getStatus();
+        transitionStatus(ticket, SupportStatus.IN_PROGRESS);
+        ticket.setClosedAt(null);
+        ticket.setClosedBy(null);
+        ticketRepository.save(ticket);
+        recordHistory(ticket, previous, SupportStatus.IN_PROGRESS, actor, "Ticket reopened.");
+        return toDetail(ticket, actor, adminView);
     }
 
     private Specification<SupportTicket> userSpecification(Long userId, String query, String status) {
@@ -431,7 +596,8 @@ public class SupportTicketService {
         };
     }
 
-    private Specification<SupportTicket> adminSpecification(String query, String status, String category, String priority, LocalDate date) {
+    private Specification<SupportTicket> adminSpecification(String query, String status, String category, String priority,
+                                                             Long assignedToId, LocalDate fromDate, LocalDate toDate) {
         return (root, cq, cb) -> {
             cq.distinct(true);
             var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
@@ -444,12 +610,10 @@ public class SupportTicketService {
             if (priority != null && !priority.isBlank() && !"ALL".equalsIgnoreCase(priority)) {
                 predicates.add(cb.equal(cb.upper(root.get("priority").as(String.class)), priority.toUpperCase(Locale.ROOT)));
             }
-            if (date != null) {
-                LocalDateTime from = date.atStartOfDay();
-                LocalDateTime to = date.plusDays(1).atStartOfDay();
-                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
-                predicates.add(cb.lessThan(root.get("createdAt"), to));
-            }
+            if (assignedToId != null && assignedToId == -1L) predicates.add(cb.isNull(root.get("assignedTo")));
+            else if (assignedToId != null) predicates.add(cb.equal(root.get("assignedTo").get("id"), assignedToId));
+            if (fromDate != null) predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate.atStartOfDay()));
+            if (toDate != null) predicates.add(cb.lessThan(root.get("createdAt"), toDate.plusDays(1).atStartOfDay()));
             addSearchPredicates(root, cb, predicates, query);
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };

@@ -25,9 +25,15 @@ public class SupportTicket {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30) @Builder.Default private SupportStatus status = SupportStatus.OPEN;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) @Builder.Default private SupportPriority priority = SupportPriority.MEDIUM;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "assigned_to_id") private User assignedTo;
-    @Column(name = "internal_notes", length = 4000) private String internalNotes;
+    @Column(name = "internal_notes", length = 4000) private String legacyInternalNotes;
+    @Column(name = "assigned_at") private LocalDateTime assignedAt;
+    @Column(name = "resolution_summary", length = 4000) private String resolutionSummary;
+    @Column(name = "resolved_at") private LocalDateTime resolvedAt;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "resolved_by_id") private User resolvedBy;
     @Column(nullable = false, updatable = false) @Builder.Default private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt;
     private LocalDateTime closedAt;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "closed_by_id") private User closedBy;
+    @Version private Long version;
     @PreUpdate void updateTime() { updatedAt = LocalDateTime.now(); }
 }

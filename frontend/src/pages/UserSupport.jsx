@@ -7,6 +7,7 @@ import {
   getMySupportTickets,
   getSupportTicket,
   replySupportTicket,
+  reopenSupportTicket,
 } from '../services/supportService';
 
 const categories = [
@@ -27,6 +28,7 @@ const statusLabels = {
   WAITING_FOR_USER: 'Waiting for User',
   RESOLVED: 'Resolved',
   CLOSED: 'Closed',
+  CANCELLED: 'Cancelled',
 };
 
 const statusClass = {
@@ -35,6 +37,7 @@ const statusClass = {
   WAITING_FOR_USER: 'waiting',
   RESOLVED: 'resolved',
   CLOSED: 'closed',
+  CANCELLED: 'closed',
 };
 
 function formatDateTime(value) {
@@ -258,6 +261,17 @@ export default function UserSupport() {
     }
   };
 
+  const reopenCurrentTicket = async () => {
+    if (!selectedTicket || closing) return;
+    setClosing(true);
+    try {
+      const response = await reopenSupportTicket(selectedTicket.id);
+      setSelectedTicket(response.data);
+      setRefreshToken((current) => current + 1);
+    } catch (err) { setError(err.response?.data?.message || 'Could not reopen the ticket.'); }
+    finally { setClosing(false); }
+  };
+
   const openTicket = (ticket) => {
     navigate(`/user/support/${ticket.id}`);
   };
@@ -465,7 +479,13 @@ export default function UserSupport() {
                   <div><strong>Transaction ID</strong><span>{selectedTicket.transactionId || '—'}</span></div>
                   <div><strong>Created Date</strong><span>{formatDateTime(selectedTicket.createdAt)}</span></div>
                   <div><strong>Last Updated</strong><span>{formatDateTime(selectedTicket.updatedAt || selectedTicket.createdAt)}</span></div>
+                  <div><strong>Resolved Date</strong><span>{formatDateTime(selectedTicket.resolvedAt)}</span></div>
+                  <div><strong>Closed Date</strong><span>{formatDateTime(selectedTicket.closedAt)}</span></div>
                 </div>
+
+                {selectedTicket.status === 'WAITING_FOR_USER' && <p className="support-success">Support is waiting for your response.</p>}
+                {selectedTicket.status === 'RESOLVED' && <p className="support-success">This ticket has been resolved.</p>}
+                {selectedTicket.resolutionSummary && <div className="support-message-block"><span>Resolution Summary</span><p>{selectedTicket.resolutionSummary}</p></div>}
 
                 <div className="support-message-block">
                   <span>Description</span>
@@ -520,11 +540,6 @@ export default function UserSupport() {
                     </label>
                     {replyState.error && <p className="error-text">{replyState.error}</p>}
                     <div className="support-form-actions">
-                      {selectedTicket.canClose && selectedTicket.status === 'RESOLVED' && (
-                        <button type="button" className="btn btn-secondary" onClick={closeCurrentTicket} disabled={closing}>
-                          {closing ? 'Closing...' : 'Close Ticket'}
-                        </button>
-                      )}
                       <button type="submit" className="btn" disabled={replyState.saving}>
                         {replyState.saving ? 'Sending...' : 'Send Reply'}
                       </button>
@@ -534,7 +549,9 @@ export default function UserSupport() {
 
                 {!selectedTicket.canReply && (
                   <div className="support-empty-state">
-                    This ticket is closed and no more replies can be sent.
+                    {selectedTicket.status === 'RESOLVED' ? 'Reopen this ticket to continue the conversation.' : 'This ticket is closed and no more replies can be sent.'}
+                    {selectedTicket.canReopen && <button type="button" className="btn btn-secondary" onClick={reopenCurrentTicket} disabled={closing}>{closing ? 'Reopening...' : 'Reopen Ticket'}</button>}
+                    {selectedTicket.canClose && <button type="button" className="btn btn-secondary" onClick={closeCurrentTicket} disabled={closing}>{closing ? 'Closing...' : 'Close Ticket'}</button>}
                   </div>
                 )}
               </>

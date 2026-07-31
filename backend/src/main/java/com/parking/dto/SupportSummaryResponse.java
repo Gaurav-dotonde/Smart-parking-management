@@ -7,5 +7,8 @@ public record SupportSummaryResponse(
         long waitingForUser,
         long resolved,
         long closed,
-        long todayTickets
+        long todayTickets,
+        long urgent,
+        long unassigned,
+        long cancelled
 ) {}

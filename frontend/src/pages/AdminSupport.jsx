@@ -6,10 +6,9 @@ import {
   getAdminSupportTickets,
   getAdminSupportTicket,
   replyAdminSupportTicket,
-  updateSupportTicket,
-} from '../services/supportService';
+ } from '../services/supportService';
 
-const statusOptions = ['ALL', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED', 'CLOSED'];
+const statusOptions = ['ALL', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED', 'CLOSED', 'CANCELLED'];
 const priorityOptions = ['ALL', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 const categoryOptions = [
   'ALL',
@@ -41,12 +40,13 @@ const formatDateTime = (value) => {
   });
 };
 
-const statusToneClass = {
-  OPEN: 'is-open',
-  IN_PROGRESS: 'is-progress',
-  WAITING_FOR_USER: 'is-waiting',
-  RESOLVED: 'is-resolved',
-  CLOSED: 'is-closed',
+const statusClass = {
+  OPEN: 'open',
+  IN_PROGRESS: 'in_progress',
+  WAITING_FOR_USER: 'waiting',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed',
+  CANCELLED: 'closed',
 };
 
 const priorityToneClass = {
@@ -87,20 +87,31 @@ function buildFormData(payload, files = []) {
   return formData;
 }
 
+function canTransition(current, next) {
+  if (current === next) return true;
+  const transitions = {
+    OPEN: ['IN_PROGRESS', 'WAITING_FOR_USER'],
+    IN_PROGRESS: ['WAITING_FOR_USER', 'RESOLVED'],
+    WAITING_FOR_USER: ['IN_PROGRESS', 'RESOLVED'],
+    RESOLVED: [],
+    CLOSED: [], CANCELLED: [],
+  };
+  return transitions[current]?.includes(next);
+}
+
 function validTransitions(current) {
   const transitions = {
-    OPEN: ['OPEN', 'IN_PROGRESS'],
-    IN_PROGRESS: ['IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED'],
-    WAITING_FOR_USER: ['WAITING_FOR_USER', 'IN_PROGRESS', 'RESOLVED'],
-    RESOLVED: ['RESOLVED', 'CLOSED'],
-    CLOSED: ['CLOSED'],
+    OPEN: ['OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER'],
+    IN_PROGRESS: ['IN_PROGRESS', 'WAITING_FOR_USER'],
+    WAITING_FOR_USER: ['WAITING_FOR_USER', 'IN_PROGRESS'],
+    RESOLVED: ['RESOLVED'], CLOSED: ['CLOSED'], CANCELLED: ['CANCELLED'],
   };
   return transitions[current] || ['OPEN'];
 }
 
 function TicketStatus({ status }) {
   const key = status || 'OPEN';
-  return <span className={`support-badge status ${statusToneClass[key] || 'is-open'}`}>{statusLabel(key)}</span>;
+   return <span className={`support-badge status ${statusToneClass[key] || 'is-open'}`}>{statusLabel(key)}</span>;
 }
 
 function TicketPriority({ priority }) {
@@ -205,6 +216,26 @@ function ChatBubble({ message }) {
   );
 }
 
+function SupportSummaryIcon({ type }) {
+  const paths = {
+    OPEN: <><circle cx="12" cy="12" r="7" /><path d="M12 8v4l2.5 2" /></>,
+    IN_PROGRESS: <><circle cx="12" cy="12" r="7" /><path d="M9 12h6M12 9v6" /></>,
+    WAITING_FOR_USER: <><path d="M5 12a7 7 0 1 0 2-5" /><path d="M5 5v4h4" /></>,
+    URGENT: <><path d="M12 4 4 19h16L12 4Z" /><path d="M12 9v4m0 3h.01" /></>,
+  };
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[type] || paths.OPEN}</svg>;
+}
+
+function SupportSummaryIcon({ type }) {
+  const paths = {
+    OPEN: <><circle cx="12" cy="12" r="7" /><path d="M12 8v4l2.5 2" /></>,
+    IN_PROGRESS: <><circle cx="12" cy="12" r="7" /><path d="M9 12h6M12 9v6" /></>,
+    WAITING_FOR_USER: <><path d="M5 12a7 7 0 1 0 2-5" /><path d="M5 5v4h4" /></>,
+    URGENT: <><path d="M12 4 4 19h16L12 4Z" /><path d="M12 9v4m0 3h.01" /></>,
+  };
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[type] || paths.OPEN}</svg>;
+}
+
 export default function AdminSupport() {
   const navigate = useNavigate();
   const { ticketId } = useParams();
@@ -218,8 +249,9 @@ export default function AdminSupport() {
   const [detailError, setDetailError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
-  const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [dateFilter, setDateFilter] = useState('');
   const [page, setPage] = useState(0);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
@@ -227,6 +259,10 @@ export default function AdminSupport() {
   const [replyFiles, setReplyFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [replySaving, setReplySaving] = useState(false);
+  const [updateSaving, setUpdateSaving] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [resolutionSummary, setResolutionSummary] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
   const [detailState, setDetailState] = useState({
     status: 'OPEN',
     priority: 'MEDIUM',
@@ -296,10 +332,21 @@ export default function AdminSupport() {
     }
 
     let mounted = true;
-    setDetailLoading(true);
-    setDetailError('');
-    getAdminSupportTicket(ticketId)
-      .then((response) => {
+    setLoading(true);
+    setListLoading(true);
+    Promise.all([
+      getAdminSupportSummary(),
+      getAdminSupportTickets({
+        page,
+        size: 10,
+        query: query || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+          priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
+          assignedToId: assigneeFilter === 'UNASSIGNED' ? -1 : !['ALL', 'ME'].includes(assigneeFilter) ? assigneeFilter : undefined,
+          assignedToMe: assigneeFilter === 'ME' || undefined,
+        }),
+    ])
+      .then(([summaryResponse, ticketsResponse]) => {
         if (!mounted) return;
         const detail = response.data || null;
         setSelectedTicket(detail);
@@ -323,52 +370,46 @@ export default function AdminSupport() {
     return () => {
       mounted = false;
     };
-  }, [ticketId]);
-
-  useEffect(() => {
-    if (!selectedTicket) return;
-    if (detailState.assignedToId) return;
-    const assigned = adminUsers.find((user) => user.email === selectedTicket.assignedToEmail || user.name === selectedTicket.assignedToName);
-    if (assigned) {
-      setDetailState((current) => ({ ...current, assignedToId: String(assigned.id) }));
-    }
-  }, [selectedTicket, adminUsers, detailState.assignedToId]);
-
-  const urgentCount = useMemo(
-    () => (ticketsPage.content || []).filter((ticket) => ticket.priority === 'URGENT').length,
-    [ticketsPage.content],
-  );
+  }, [page, query, statusFilter, priorityFilter, assigneeFilter]);
 
   const summaryCards = useMemo(() => ([
-    { label: 'Open', value: summary.open || 0, note: 'Needs first response', icon: 'ticket', tone: 'is-amber' },
-    { label: 'In Progress', value: summary.inProgress || 0, note: 'Being handled by support', icon: 'message', tone: 'is-blue' },
-    { label: 'Waiting For User', value: summary.waitingForUser || 0, note: 'Needs a customer reply', icon: 'clock', tone: 'is-purple' },
-    { label: 'Urgent', value: urgentCount, note: 'High priority on this page', icon: 'alert', tone: 'is-red' },
-  ]), [summary, urgentCount]);
+    { label: 'Total Tickets', value: summary.totalTickets || 0, tone: 'blue', filter: 'ALL' },
+    { label: 'Open', value: summary.open || 0, tone: 'amber', filter: 'OPEN' },
+    { label: 'In Progress', value: summary.inProgress || 0, tone: 'orange', filter: 'IN_PROGRESS' },
+    { label: 'Waiting For User', value: summary.waitingForUser || 0, tone: 'purple', filter: 'WAITING_FOR_USER' },
+    { label: 'Resolved', value: summary.resolved || 0, tone: 'green', filter: 'RESOLVED' },
+    { label: 'Closed', value: summary.closed || 0, tone: 'gray', filter: 'CLOSED' },
+    { label: "Today's Tickets", value: summary.todayTickets || 0, tone: 'blue', filter: 'ALL' },
+  ]), [summary]);
 
-  const selectedStatusOptions = validTransitions(selectedTicket?.status || 'OPEN');
-  const selectedTicketId = selectedTicket ? String(selectedTicket.id) : String(ticketId || '');
-  const conversationCount = selectedTicket?.messageCount ?? selectedTicket?.messages?.length ?? 0;
-  const pageSize = ticketsPage.size || 10;
-  const startIndex = ticketsPage.totalElements ? (ticketsPage.page * pageSize) + 1 : 0;
-  const endIndex = ticketsPage.totalElements ? Math.min(startIndex + (ticketsPage.content?.length || 0) - 1, ticketsPage.totalElements) : 0;
+  const handleSummaryCardClick = (card) => {
+    setPage(0);
+    setStatusFilter(card.filter);
+    requestAnimationFrame(() => {
+      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
-  const refreshAll = async () => {
-    await loadList(page, query, statusFilter, priorityFilter, categoryFilter);
-    if (ticketId) {
-      try {
-        const response = await getAdminSupportTicket(ticketId);
-        const detail = response.data || null;
-        setSelectedTicket(detail);
-        setDetailState((current) => ({
-          ...current,
-          status: detail?.status || current.status,
-          priority: detail?.priority || current.priority,
-          internalNotes: detail?.internalNotes || '',
-        }));
-      } catch (err) {
-        setDetailError(err.response?.data?.message || 'Could not refresh ticket details.');
-      }
+  const openTicket = async (ticket) => {
+    setDetailLoading(true);
+    setDetailError('');
+    try {
+      const response = await getAdminSupportTicket(ticket.id);
+      const detail = response.data || null;
+      setSelectedTicket(detail);
+      setDetailState({
+        status: detail?.status || 'OPEN',
+        priority: detail?.priority || 'MEDIUM',
+        assignedToId: detail?.assignedToName ? String(adminUsers.find((user) => user.name === detail.assignedToName)?.id || '') : '',
+        internalNotes: '',
+      });
+      setReplyText('');
+      setReplyFiles([]);
+      setResolutionSummary(detail?.resolutionSummary || '');
+    } catch (err) {
+      setDetailError(err.response?.data?.message || 'Could not open ticket.');
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -419,48 +460,29 @@ export default function AdminSupport() {
     }
   };
 
-  const quickTransition = async (status) => {
-    await saveTicket({ status });
+  const selectedStatusOptions = validTransitions(selectedTicket?.status || 'OPEN');
+
+  const runAction = async (action, successMessage) => {
+    if (!selectedTicket || actionSaving) return;
+    setActionSaving(true); setDetailError('');
+    try {
+      const response = await action();
+      setSelectedTicket(response.data);
+      setDetailState((current) => ({ ...current, status: response.data.status, internalNotes: '' }));
+      await loadData(page);
+      window.alert(successMessage);
+    } catch (err) { setDetailError(err.response?.data?.message || 'Could not complete this action.'); }
+    finally { setActionSaving(false); }
   };
 
-  const exportCsv = () => {
-    const rows = [
-      ['Ticket ID', 'Customer Name', 'Email', 'Category', 'Booking ID', 'Transaction ID', 'Priority', 'Status', 'Created At', 'Assigned Agent'],
-      ...(ticketsPage.content || []).map((ticket) => ([
-        formatTicketId(ticket),
-        ticket.userName || '',
-        ticket.userEmail || '',
-        categoryLabel(ticket.category),
-        ticket.bookingId || '',
-        ticket.transactionId || '',
-        ticket.priority || '',
-        statusLabel(ticket.status),
-        ticket.createdAt || '',
-        ticket.assignedToName || 'Unassigned',
-      ])),
-    ];
-    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'support-tickets.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const resolveCurrent = () => {
+    if (!resolutionSummary.trim()) return setDetailError('Resolution summary is required.');
+    return runAction(() => resolveSupportTicket(selectedTicket.id, { resolutionSummary: resolutionSummary.trim() }), 'Ticket resolved successfully.');
   };
 
-  const selectTicket = (ticket) => {
-    navigate(`/admin/support/${ticket.id}`);
-  };
-
-  const clearFilters = () => {
-    setPage(0);
-    setQuery('');
-    setStatusFilter('ALL');
-    setPriorityFilter('ALL');
-    setCategoryFilter('ALL');
+  const closeCurrent = () => {
+    if (!window.confirm('Close this resolved ticket?')) return;
+    runAction(() => closeAdminSupportTicket(selectedTicket.id), 'Ticket closed successfully.');
   };
 
   return (
@@ -483,19 +505,44 @@ export default function AdminSupport() {
         </div>
       </section>
 
-      <section className="support-board-stats">
-        {summaryCards.map((card) => <StatCard key={card.label} {...card} />)}
+      <section className="support-admin-stats support-admin-stats-grid">
+        {summaryCards.map((card) => (
+          <article
+            key={card.label}
+            className={`tone-${card.tone} support-admin-stat-card`}
+            role="button"
+            tabIndex={0}
+            onClick={() => handleSummaryCardClick(card)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                handleSummaryCardClick(card);
+              }
+            }}
+          >
+            <span className="support-stat-icon"><SupportSummaryIcon type={card.filter === 'ALL' ? 'URGENT' : card.filter} /></span>
+            <div>
+              <small>{card.label}</small>
+              <strong>{loading ? '...' : card.value}</strong>
+              <p>Support overview</p>
+            </div>
+          </article>
+        ))}
       </section>
 
-      <section className="support-board-shell card-surface">
-        <div className="support-board-toolbar">
-          <label className="support-board-search">
-            <AdminIcon name="search" />
-            <input
-              value={query}
-              onChange={(event) => { setPage(0); setQuery(event.target.value); }}
-              placeholder="Search ticket, user, email, booking or subject..."
-            />
+      <section className="admin-data-card support-admin-list-card">
+        <div className="support-admin-list-head">
+          <div>
+            <span className="support-admin-eyebrow">Inbox</span>
+            <h3>Support Tickets</h3>
+            <p>Manage user questions, replies and issue resolution.</p>
+          </div>
+        </div>
+
+        <div className="support-admin-toolbar">
+          <label className="support-admin-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
+            <input value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} placeholder="Search ticket, user, email, booking or subject..." />
           </label>
 
           <div className="support-board-filters">
@@ -509,106 +556,85 @@ export default function AdminSupport() {
                 <option key={priority} value={priority}>{priority === 'ALL' ? 'All Priorities' : priorityLabel(priority)}</option>
               ))}
             </select>
-            <select value={categoryFilter} onChange={(event) => { setPage(0); setCategoryFilter(event.target.value); }}>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>{category === 'ALL' ? 'All Categories' : categoryLabel(category)}</option>
-              ))}
+
+            <select value={priorityFilter} onChange={(event) => { setPage(0); setPriorityFilter(event.target.value); }}>
+              {priorityOptions.map((priority) => <option key={priority} value={priority}>{priority === 'ALL' ? 'All Priorities' : priority}</option>)}
             </select>
-            <button type="button" className="support-board-reset" onClick={clearFilters}>
-              Reset Filters
-            </button>
+            <select value={assigneeFilter} onChange={(event) => { setPage(0); setAssigneeFilter(event.target.value); }}>
+              <option value="ALL">All Assignees</option><option value="ME">Assigned to me</option><option value="UNASSIGNED">Unassigned</option>
+              {adminUsers.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+            </select>
           </div>
         </div>
 
-        <div className="support-board-grid">
-          <aside className="support-board-list-card">
-            <div className="support-board-list-head">
+        {error && <p className="error-text support-admin-error">{error}</p>}
+        {listLoading ? (
+          <div className="support-admin-loading"><span className="booking-details-spinner" /><p>Loading support tickets...</p></div>
+        ) : ticketsPage.content?.length === 0 ? (
+          <div className="support-admin-empty"><span>OK</span><h3>No tickets found</h3><p>No support requests match this view.</p></div>
+        ) : (
+          <div ref={tableRef} className="dashboard-table-wrap admin-responsive-table support-admin-table-wrap">
+            <table className="dashboard-table support-admin-table">
+              <thead>
+                <tr>
+                  <th>Ticket ID</th>
+                  <th>User</th>
+                  <th>Category</th>
+                  <th>Booking ID</th>
+                  <th>Transaction ID</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Created Date</th>
+                  <th>Assigned To</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ticketsPage.content.map((ticket) => (
+                  <tr key={ticket.id}>
+                    <td><strong>{formatTicketId(ticket)}</strong></td>
+                    <td>
+                      <strong>{ticket.userName}</strong>
+                      <div className="payments-subline">{ticket.userEmail}</div>
+                    </td>
+                    <td>{categoryLabel(ticket.category)}</td>
+                    <td>{ticket.bookingId || 'N/A'}</td>
+                    <td>{ticket.transactionId || 'N/A'}</td>
+                    <td>{ticket.priority}</td>
+                    <td><TicketStatus status={ticket.status} /></td>
+                    <td>{formatDateTime(ticket.createdAt)}</td>
+                    <td>{ticket.assignedToName || 'Unassigned'}</td>
+                    <td>
+                      <button type="button" className="btn btn-secondary support-view-btn" onClick={() => openTicket(ticket)}>
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="support-pagination">
+          <span>Showing {ticketsPage.content?.length || 0} of {ticketsPage.totalElements || 0} tickets</span>
+          <div className="support-pagination-actions">
+            <button type="button" className="btn btn-secondary" disabled={page <= 0} onClick={() => setPage((current) => Math.max(current - 1, 0))}>Previous</button>
+            <span className="support-pagination-page">Page {ticketsPage.page + 1} of {ticketsPage.totalPages || 1}</span>
+            <button type="button" className="btn btn-secondary" disabled={ticketsPage.last} onClick={() => setPage((current) => current + 1)}>Next</button>
+          </div>
+        </div>
+      </section>
+
+      {selectedTicket && (
+        <div className="support-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedTicket(null); }}>
+          <div className="support-modal support-review-modal support-admin-detail-modal">
+            <div className="support-modal-head">
               <div>
-                <span className="support-board-kicker">Queue</span>
-                <h3>Ticket List</h3>
+                <span>{formatTicketId(selectedTicket)}</span>
+                <h3>{selectedTicket.subject}</h3>
               </div>
-              <span className="support-board-count">{ticketsPage.totalElements || 0}</span>
-            </div>
-
-            {error && <p className="error-text support-board-error">{error}</p>}
-
-            {loading || listLoading ? (
-              <div className="support-board-loading">
-                <span className="booking-details-spinner" />
-                <p>Loading support tickets...</p>
-              </div>
-            ) : ticketsPage.content?.length ? (
-              <div className="support-board-table-wrap">
-                <table className="support-board-table">
-                  <thead>
-                    <tr>
-                      <th>Ticket ID</th>
-                      <th>User</th>
-                      <th>Category</th>
-                      <th>Booking ID</th>
-                      <th>Transaction ID</th>
-                      <th>Priority</th>
-                      <th>Status</th>
-                      <th>Created Date</th>
-                      <th>Assigned To</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ticketsPage.content.map((ticket) => {
-                      const isActive = selectedTicketId === String(ticket.id);
-                      return (
-                        <tr key={ticket.id} className={isActive ? 'is-active' : ''}>
-                          <td>
-                            <strong className="support-board-ticket-id">{formatTicketId(ticket)}</strong>
-                          </td>
-                          <td>
-                            <div className="support-board-user-cell">
-                              <strong>{safeText(ticket.userName, 'Unknown user')}</strong>
-                              <small>{safeText(ticket.userEmail, '')}</small>
-                            </div>
-                          </td>
-                          <td><TicketCategory category={ticket.category} /></td>
-                          <td>{safeText(ticket.bookingId, 'N/A')}</td>
-                          <td>{safeText(ticket.transactionId, 'N/A')}</td>
-                          <td><TicketPriority priority={ticket.priority} /></td>
-                          <td><TicketStatus status={ticket.status} /></td>
-                          <td>{formatDateTime(ticket.createdAt)}</td>
-                          <td>{safeText(ticket.assignedToName, 'Unassigned')}</td>
-                          <td>
-                            <button type="button" className="support-board-view-btn" onClick={() => selectTicket(ticket)}>
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="support-board-empty">
-                <div className="support-board-empty-icon">
-                  <AdminIcon name="ticket" />
-                </div>
-                <h3>No tickets found</h3>
-                <p>No support requests match the current filters.</p>
-              </div>
-            )}
-
-            <div className="support-board-footer">
-              <span>
-                Showing {startIndex ? `${startIndex}-${endIndex}` : 0} of {ticketsPage.totalElements || 0} tickets
-              </span>
-              <div className="support-board-pagination">
-                <button type="button" className="btn btn-secondary" disabled={page <= 0} onClick={() => setPage((current) => Math.max(current - 1, 0))}>
-                  Previous
-                </button>
-                <span>Page {ticketsPage.page + 1} of {ticketsPage.totalPages || 1}</span>
-                <button type="button" className="btn btn-secondary" disabled={ticketsPage.last} onClick={() => setPage((current) => current + 1)}>
-                  Next
-                </button>
-              </div>
+              <button type="button" onClick={() => setSelectedTicket(null)} aria-label="Close">&times;</button>
             </div>
           </aside>
 
@@ -622,93 +648,67 @@ export default function AdminSupport() {
               <>
                 <div className="support-board-detail-head">
                   <div>
-                    <span className="support-board-kicker">Selected Ticket</span>
-                    <h3>{selectedTicket.subject}</h3>
-                    <p>
-                      {selectedTicket.userName} - {selectedTicket.userEmail}
-                    </p>
-                    <div className="support-board-chip-row">
-                      <TicketCategory category={selectedTicket.category} />
-                      <TicketPriority priority={selectedTicket.priority} />
-                      <TicketStatus status={selectedTicket.status} />
-                    </div>
+                    <strong>{selectedTicket.userName}</strong>
+                    <span>{selectedTicket.userEmail} &middot; {categoryLabel(selectedTicket.category)}</span>
                   </div>
                   <button type="button" className="support-board-back-btn" onClick={() => navigate('/admin/support')}>
                     Back to list
                   </button>
                 </div>
 
-                <div className="support-board-meta-grid">
-                  <div>
-                    <span>Ticket ID</span>
-                    <strong>{formatTicketId(selectedTicket)}</strong>
-                  </div>
-                  <div>
-                    <span>Booking ID</span>
-                    <strong>{safeText(selectedTicket.bookingId)}</strong>
-                  </div>
-                  <div>
-                    <span>Transaction ID</span>
-                    <strong>{safeText(selectedTicket.transactionId)}</strong>
-                  </div>
-                  <div>
-                    <span>Messages</span>
-                    <strong>{conversationCount}</strong>
-                  </div>
-                  <div>
-                    <span>Assigned</span>
-                    <strong>{safeText(selectedTicket.assignedToName, 'Unassigned')}</strong>
-                  </div>
-                  <div>
-                    <span>Created</span>
-                    <strong>{formatDateTime(selectedTicket.createdAt)}</strong>
+                <div className="support-ticket-meta-grid">
+                  <div><strong>Ticket ID</strong><span>{formatTicketId(selectedTicket)}</span></div>
+                  <div><strong>Booking ID</strong><span>{selectedTicket.bookingId || 'N/A'}</span></div>
+                  <div><strong>Transaction ID</strong><span>{selectedTicket.transactionId || 'N/A'}</span></div>
+                  <div><strong>Created Date</strong><span>{formatDateTime(selectedTicket.createdAt)}</span></div>
+                  <div><strong>Last Updated</strong><span>{formatDateTime(selectedTicket.updatedAt || selectedTicket.createdAt)}</span></div>
+                  <div><strong>Priority</strong><span>{selectedTicket.priority}</span></div>
+                  <div><strong>Assigned Admin</strong><span>{selectedTicket.assignedToName || 'Unassigned'}</span></div>
+                  <div><strong>Resolved Date</strong><span>{formatDateTime(selectedTicket.resolvedAt)}</span></div>
+                  <div><strong>Closed Date</strong><span>{formatDateTime(selectedTicket.closedAt)}</span></div>
+                </div>
+
+                <div className="support-review-message">
+                  <span>User message</span>
+                  <p>{selectedTicket.message}</p>
+                </div>
+
+                {Array.isArray(selectedTicket.attachments) && selectedTicket.attachments.length > 0 && (
+                  <div className="support-attachment-list">
+                    <span>Attachments</span>
+                    {selectedTicket.attachments.map((attachment) => (
+                      <a key={attachment.id} href={attachment.fileUrl} target="_blank" rel="noreferrer">
+                        {attachment.originalFileName}
+                      </a>
+                    ))}
                   </div>
                 </div>
 
-                <form className="support-board-form" onSubmit={sendReply}>
-                  <div className="support-board-form-grid">
-                    <label>
-                      Status
-                      <select value={detailState.status} onChange={(event) => setDetailState((current) => ({ ...current, status: event.target.value }))}>
-                        {selectedStatusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      Priority
-                      <select value={detailState.priority} onChange={(event) => setDetailState((current) => ({ ...current, priority: event.target.value }))}>
-                        {priorityOptions.filter((item) => item !== 'ALL').map((priority) => <option key={priority} value={priority}>{priorityLabel(priority)}</option>)}
-                      </select>
-                    </label>
-                    <label className="support-board-full-width">
-                      Assign Agent
-                      <select value={detailState.assignedToId} onChange={(event) => setDetailState((current) => ({ ...current, assignedToId: event.target.value }))}>
-                        <option value="">Unassigned</option>
-                        {adminUsers.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.name} ({user.email})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="support-board-full-width">
-                      Internal Notes
-                      <textarea
-                        rows={3}
-                        value={detailState.internalNotes}
-                        onChange={(event) => setDetailState((current) => ({ ...current, internalNotes: event.target.value }))}
-                        placeholder="Add internal notes for the support team..."
-                      />
-                    </label>
-                    <label className="support-board-full-width">
-                      Reply to customer
-                      <textarea
-                        rows={4}
-                        value={replyText}
-                        onChange={(event) => setReplyText(event.target.value)}
-                        placeholder="Type your response here..."
-                      />
-                    </label>
-                  </div>
+                 <div className="support-admin-form-grid">
+                  <label>
+                    Status
+                    <select value={detailState.status} onChange={(event) => setDetailState((current) => ({ ...current, status: event.target.value }))}>
+                      {selectedStatusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Priority
+                    <select value={detailState.priority} onChange={(event) => setDetailState((current) => ({ ...current, priority: event.target.value }))}>
+                      {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Assigned To
+                    <select value={detailState.assignedToId} onChange={(event) => setDetailState((current) => ({ ...current, assignedToId: event.target.value }))}>
+                      <option value="">Unassigned</option>
+                      {adminUsers.map((user) => <option key={user.id} value={user.id}>{user.name} ({user.email})</option>)}
+                    </select>
+                  </label>
+                  <label className="support-full-width">
+                    Internal Notes
+                    <textarea rows={4} value={detailState.internalNotes} onChange={(event) => setDetailState((current) => ({ ...current, internalNotes: event.target.value }))} placeholder="Internal notes for the admin team only" />
+                  </label>
+                </div>
 
                   <div className="support-board-attachments">
                     <label className="support-board-file">
@@ -821,9 +821,44 @@ export default function AdminSupport() {
                 <div className="support-board-empty-icon is-large">
                   <AdminIcon name="ticket" />
                 </div>
-                <h3>No Ticket Selected</h3>
-                <p>Select a support ticket from the table to view details and respond.</p>
-              </div>
+
+                <label className="support-full-width">
+                  Reply to user
+                  <textarea rows={4} value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a helpful response..." />
+                </label>
+                <label className="support-full-width">
+                  Upload attachment
+                  <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(event) => setReplyFiles(Array.from(event.target.files || []))} />
+                </label>
+
+                <div className="support-modal-actions">
+                  <button type="button" className="btn btn-secondary" disabled={updateSaving} onClick={handleUpdate}>
+                    {updateSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  {selectedTicket.canReply && <button type="button" className="btn" disabled={replySaving} onClick={sendReply}>
+                    {replySaving ? 'Sending...' : 'Send Reply'}
+                  </button>}
+                </div>
+
+                <div className="support-conversation">
+                  <h4>Activity Timeline</h4>
+                  {selectedTicket.history?.map((item) => <article key={item.id} className="support-conversation-item">
+                    <div className="support-conversation-meta"><strong>{item.changedByName}</strong><span>{item.previousStatus || 'NEW'} to {item.newStatus}</span><time>{formatDateTime(item.createdAt)}</time></div>
+                    <p>{item.note}</p>
+                  </article>)}
+                </div>
+
+                {['OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER'].includes(selectedTicket.status) && <div className="support-message-block">
+                  <span>Resolve Ticket</span>
+                  <textarea rows={3} value={resolutionSummary} onChange={(event) => setResolutionSummary(event.target.value)} placeholder="Required resolution summary" />
+                  <button type="button" className="btn" disabled={actionSaving} onClick={resolveCurrent}>{actionSaving ? 'Resolving...' : 'Resolve Ticket'}</button>
+                </div>}
+                {selectedTicket.status === 'RESOLVED' && <div className="support-modal-actions">
+                  <button type="button" className="btn btn-secondary" disabled={actionSaving} onClick={() => runAction(() => reopenAdminSupportTicket(selectedTicket.id), 'Ticket reopened successfully.')}>Reopen Ticket</button>
+                  <button type="button" className="btn" disabled={actionSaving} onClick={closeCurrent}>Close Ticket</button>
+                </div>}
+                {selectedTicket.status === 'CLOSED' && <button type="button" className="btn btn-secondary" disabled={actionSaving} onClick={() => runAction(() => reopenAdminSupportTicket(selectedTicket.id), 'Ticket reopened successfully.')}>Reopen Ticket</button>}
+              </>
             )}
           </section>
         </div>
@@ -831,3 +866,4 @@ export default function AdminSupport() {
     </div>
   );
 }
+
