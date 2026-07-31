@@ -5,6 +5,7 @@ import { getMyBookings } from '../services/bookingService';
 import { unwrapList } from '../services/parkingService';
 import { useAuth } from '../context/AuthContext';
 import { formatDisplayName } from '../utils/formatDisplayName';
+import { getUserRefundSummary } from '../services/refundService';
 
 const summaryCards = [
   { title: 'Total Bookings', tone: 'blue', icon: 'booking', to: '/user/booking-history?status=ALL' },
@@ -68,6 +69,13 @@ function DashIcon({ name }) {
           <path d="M4 10H20" stroke="currentColor" strokeWidth="1.8" />
         </svg>
       );
+    case 'refund':
+      return (
+        <svg {...commonProps}>
+          <path d="M7 8.5H17.5A3.5 3.5 0 0 1 21 12v1.5A3.5 3.5 0 0 1 17.5 17H8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M10 5.5 7 8.5l3 3M13 11v4M11.5 12.2H14a1.2 1.2 0 0 0 0-2.4h-2.5a1.2 1.2 0 0 0 0 2.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
     case 'pin':
       return (
         <svg {...commonProps}>
@@ -92,14 +100,16 @@ export default function UserDashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [refundSummary, setRefundSummary] = useState(null);
+  const [refundError, setRefundError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     setLoading(true);
     setError('');
-    Promise.allSettled([getUserDashboard(), getMyBookings()])
-      .then(([dashboardResult, bookingsResult]) => {
+    Promise.allSettled([getUserDashboard(), getMyBookings(), getUserRefundSummary()])
+      .then(([dashboardResult, bookingsResult, refundResult]) => {
         if (!mounted) return;
         if (dashboardResult.status === 'fulfilled') {
           setDashboard(dashboardResult.value.data || null);
@@ -107,6 +117,8 @@ export default function UserDashboard() {
         if (bookingsResult.status === 'fulfilled') {
           setBookings(unwrapList(bookingsResult.value.data));
         }
+        if (refundResult.status === 'fulfilled') setRefundSummary(refundResult.value.data);
+        else setRefundError(true);
         if (dashboardResult.status === 'rejected' && bookingsResult.status === 'rejected') {
           const reason = bookingsResult.reason || dashboardResult.reason;
           setError(reason?.response?.data?.message || 'Failed to load dashboard data.');
@@ -198,6 +210,26 @@ export default function UserDashboard() {
             <span className="user-card-link-hint">View details <span aria-hidden="true">→</span></span>
           </NavLink>
         ))}
+        <NavLink to="/user/payments?tab=refunds" className="user-summary-card user-clickable-card tone-purple user-refund-summary-card">
+          <div className="user-summary-head">
+            <div className="user-summary-icon tone-purple"><DashIcon name="refund" /></div>
+            <span className="user-summary-title">My Refunds</span>
+          </div>
+          {loading ? (
+            <><strong className="user-summary-value">...</strong><span className="user-summary-note">Loading refund updates</span></>
+          ) : refundError ? (
+            <><strong className="user-summary-value">—</strong><span className="user-summary-note">Refund information unavailable</span></>
+          ) : Number(refundSummary?.failedRefundCount || 0) > 0 ? (
+            <><strong className="user-summary-value refund-attention">Needs attention</strong><span className="user-summary-note">{refundSummary.failedRefundCount} refund(s) failed</span><span className="refund-inline-badge failed">FAILED</span></>
+          ) : Number(refundSummary?.pendingRefundAmount || 0) > 0 ? (
+            <><strong className="user-summary-value">{formatCurrency(refundSummary.pendingRefundAmount)}</strong><span className="user-summary-note">Refund in Process · {refundSummary.processingRefundCount || 0} refund(s)</span><span className="refund-inline-badge processing">PROCESSING</span></>
+          ) : Number(refundSummary?.completedRefundCount || 0) > 0 ? (
+            <><strong className="user-summary-value">{formatCurrency(refundSummary.totalRefundedAmount)}</strong><span className="user-summary-note">{refundSummary.completedRefundCount} refund(s) completed</span><span className="refund-inline-badge completed">COMPLETED</span></>
+          ) : (
+            <><strong className="user-summary-value">{formatCurrency(0)}</strong><span className="user-summary-note">No refunds yet</span><small>Cancelled paid bookings and refund updates appear here.</small></>
+          )}
+          <span className="user-card-link-hint">View refunds <span aria-hidden="true">→</span></span>
+        </NavLink>
       </section>
 
       <section className="user-quick-actions user-page-card">

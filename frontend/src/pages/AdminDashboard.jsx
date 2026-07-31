@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAdminDashboard } from '../services/adminDashboardService';
 import { onParkingDataChanged } from '../services/dataSync';
 import { formatDisplayName } from '../utils/formatDisplayName';
+import { getAdminRefundSummary } from '../services/refundService';
 
 const stats = [
   { label: 'Parking Locations', key: 'totalParkingLocations', tone: 'location', icon: '⌂', description: 'Manage parking locations', to: '/admin/lots', trend: 'Live' },
@@ -10,11 +11,10 @@ const stats = [
   { label: 'Available Slots', key: 'availableSlots', tone: 'available', icon: '✓', description: 'Ready for new bookings', to: '/admin/slots?status=AVAILABLE' },
   { label: 'Upcoming/Booked', key: 'bookedSlots', tone: 'booked', icon: '▣', description: 'Reserved and active bookings', to: '/admin/bookings?status=ACTIVE_STATUSES' },
   { label: 'Reserved Slots', key: 'reservedSlots', tone: 'reserved', icon: '◇', description: 'Future confirmed reservations', to: '/admin/bookings?status=RESERVED' },
-  { label: 'Occupied Slots', key: 'occupiedSlots', tone: 'occupied', icon: '●', description: 'Current parked vehicles', to: '/admin/bookings?status=OCCUPIED' },
   { label: 'Maintenance', key: 'maintenanceSlots', tone: 'maintenance', icon: '⚒', description: 'Review maintenance slots', to: '/admin/slots?status=MAINTENANCE' },
   { label: 'Users', key: 'totalUsers', tone: 'users', icon: '♙', description: 'Manage registered users', to: '/admin/users' },
   { label: 'Vehicles', key: 'totalVehicles', tone: 'vehicles', icon: '▰', description: 'Manage active vehicle records', to: '/admin/vehicles' },
-  { label: 'Active Bookings', key: 'activeBookings', tone: 'active', icon: '◷', description: 'Reserved, active and occupied', to: '/admin/bookings?status=ACTIVE_STATUSES' },
+  { label: 'Active Bookings', key: 'activeBookings', tone: 'active', icon: '◷', description: 'Reserved and active bookings', to: '/admin/bookings?status=ACTIVE_STATUSES' },
   { label: 'Completed Bookings', key: 'completedBookings', tone: 'completed', icon: '✓', description: 'Review completed bookings', to: '/admin/bookings?status=COMPLETED' },
   { label: 'Cancelled Bookings', key: 'cancelledBookings', tone: 'cancelled', icon: '×', description: 'Review cancelled bookings', to: '/admin/bookings?status=CANCELLED' },
   { label: "Today's Bookings", key: 'todayBookings', tone: 'today', icon: '◫', description: 'Bookings scheduled to start today', to: '/admin/bookings?date=today', trend: 'Today' },
@@ -24,7 +24,7 @@ const stats = [
 
 const slotKeys = [
   ['Available', 'availableSlots', '#18a66a'], ['Booked', 'bookedSlots', '#6757d9'],
-  ['Reserved', 'reservedSlots', '#e49a21'], ['Occupied', 'occupiedSlots', '#1677e8'],
+  ['Reserved', 'reservedSlots', '#e49a21'],
   ['Maintenance', 'maintenanceSlots', '#7c8798'],
 ];
 
@@ -61,7 +61,7 @@ function Empty({ text }) { return <div className="admin-empty-compact">{text}</d
 
 const emptyDashboard = {
   totalParkingLocations: 0, totalParkingSlots: 0, availableSlots: 0, bookedSlots: 0,
-  reservedSlots: 0, occupiedSlots: 0, maintenanceSlots: 0, disabledSlots: 0,
+  reservedSlots: 0, maintenanceSlots: 0, disabledSlots: 0,
   totalUsers: 0, totalVehicles: 0, activeBookings: 0, completedBookings: 0,
   cancelledBookings: 0, todayBookings: 0, totalRevenue: 0,
   recentBookings: [], recentUsers: [], recentPayments: [], locationOccupancy: [], revenueOverview: [],
@@ -89,13 +89,16 @@ export default function AdminDashboard() {
   const [data, setData] = useState(emptyDashboard);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refundSummary, setRefundSummary] = useState(null);
 
   const loadDashboard = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const response = await getAdminDashboard();
-      setData(normalizeDashboard(response?.data));
+      const [dashboardResult, refundResult] = await Promise.allSettled([getAdminDashboard(), getAdminRefundSummary()]);
+      if (dashboardResult.status === 'rejected') throw dashboardResult.reason;
+      setData(normalizeDashboard(dashboardResult.value?.data));
+      setRefundSummary(refundResult.status === 'fulfilled' ? refundResult.value?.data : null);
     } catch (requestError) {
       const diagnostic = {
         status: requestError.response?.status,
@@ -137,6 +140,16 @@ export default function AdminDashboard() {
           <span className="admin-stat-content"><small>{label}</small><strong>{key === 'reportsNavigation' ? 'Open Reports' : key === 'totalRevenue' ? money(data[key]) : data[key]}</strong><em>{description}</em></span>
           <span className="admin-stat-hint">Click to view details <b aria-hidden="true">→</b></span>
         </button>)}
+      </section>
+
+      <section className="admin-dashboard-panel admin-refund-summary">
+        <header><h3>Refund overview</h3><p>Payment refunds are tracked separately from revenue and bookings.</p></header>
+        {!refundSummary ? <Empty text="Refund summary is temporarily unavailable." /> : <div className="admin-dashboard-stat-grid refund-grid">
+          <button type="button" className="admin-dashboard-stat revenue" onClick={() => navigate('/admin/payments?tab=refunds&status=COMPLETED')}><span className="admin-stat-symbol">₹</span><span className="admin-stat-content"><small>Total Refund Amount</small><strong>{money(refundSummary.totalRefundAmount)}</strong><em>Today {money(refundSummary.todayRefundAmount)} · Month {money(refundSummary.thisMonthRefundAmount)}</em></span><span className="admin-stat-hint">View completed refunds →</span></button>
+          <button type="button" className="admin-dashboard-stat reserved" onClick={() => navigate('/admin/payments?tab=refunds&status=REQUESTED,INITIATED,PROCESSING')}><span className="admin-stat-symbol">↻</span><span className="admin-stat-content"><small>Pending Refunds</small><strong>{Number(refundSummary.pendingRefundCount || 0) + Number(refundSummary.processingRefundCount || 0)}</strong><em>{refundSummary.processingRefundCount || 0} currently processing</em></span><span className="admin-stat-hint">Review pending refunds →</span></button>
+          <button type="button" className="admin-dashboard-stat completed" onClick={() => navigate('/admin/payments?tab=refunds&status=COMPLETED')}><span className="admin-stat-symbol">✓</span><span className="admin-stat-content"><small>Completed Refunds</small><strong>{refundSummary.completedRefundCount || 0}</strong><em>Successfully completed records</em></span><span className="admin-stat-hint">View completed refunds →</span></button>
+          <button type="button" className="admin-dashboard-stat cancelled" onClick={() => navigate('/admin/payments?tab=refunds&status=FAILED')}><span className="admin-stat-symbol">!</span><span className="admin-stat-content"><small>Failed Refunds</small><strong>{refundSummary.failedRefundCount || 0}</strong><em>Eligible records can be retried</em></span><span className="admin-stat-hint">Review failed refunds →</span></button>
+        </div>}
       </section>
 
       <div className="admin-dashboard-grid two">

@@ -55,6 +55,7 @@ public class ParkingLot {
     private Integer totalFloors = 0;
 
     @Column(nullable = false) @Builder.Default private Integer availableSlots = 0;
+    @JsonIgnore
     @Column(nullable = false) @Builder.Default private Integer occupiedSlots = 0;
     @Column(nullable = false) @Builder.Default private Integer bookedSlots = 0;
     @Column(nullable = false) @Builder.Default private Integer reservedSlots = 0;

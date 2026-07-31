@@ -16,7 +16,7 @@ import {
 
 const vehicleTypes = ['Two Wheeler', 'Car'];
 const slotTypes = ['STANDARD', 'COMPACT', 'LARGE', 'ACCESSIBLE', 'EV CHARGING', 'VIP'];
-const statuses = ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'MAINTENANCE', 'INACTIVE'];
+const statuses = ['AVAILABLE', 'RESERVED', 'MAINTENANCE', 'INACTIVE'];
 const editableStatuses = ['AVAILABLE', 'MAINTENANCE', 'INACTIVE'];
 const pageSizes = [10, 25, 50, 100];
 const ordinalFloorNames = ['Ground', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth', 'Eleventh', 'Twelfth', 'Thirteenth', 'Fourteenth', 'Fifteenth', 'Sixteenth', 'Seventeenth', 'Eighteenth', 'Nineteenth', 'Twentieth'];
@@ -325,8 +325,7 @@ export default function AdminPanel() {
       total: f.total,
       available: f.available,
       reserved: f.reserved,
-      booked: f.booked,
-      occupied: f.occupied
+      booked: f.booked
     }));
   }, [summary]);
 
@@ -337,7 +336,6 @@ export default function AdminPanel() {
       available: summary.available,
       reserved: summary.reserved,
       booked: summary.booked,
-      occupied: summary.occupied,
       maintenance: summary.maintenance,
       disabled: summary.disabled
     };
@@ -351,7 +349,6 @@ export default function AdminPanel() {
     ['available', 'Available', statusCounts.available || 0, 'check'],
     ['booked', 'Booked', statusCounts.booked || 0, 'calendar'],
     ['reserved', 'Reserved', statusCounts.reserved || 0, 'bookmark'],
-    ['occupied', 'Occupied', statusCounts.occupied || 0, 'car'],
     ['maintenance', 'Maintenance', statusCounts.maintenance || 0, 'tool']
   ];
 

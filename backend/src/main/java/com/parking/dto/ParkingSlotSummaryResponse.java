@@ -9,7 +9,6 @@ public record ParkingSlotSummaryResponse(
         long available,
         long reserved,
         long booked,
-        long occupied,
         long maintenance,
         long disabled,
         List<FloorSummaryResponse> floors
