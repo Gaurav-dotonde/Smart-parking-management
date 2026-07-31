@@ -359,4 +359,5 @@ public class RefundService {
     private int validPage(int page) { return Math.max(0, page); }
     private int validSize(int size) { return Math.min(100, Math.max(1, size)); }
     private String nextPublicId() { return "RF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT); }
-    pri
+    private String cleanActor(String actor) { return actor == null || actor.isBlank() ? "SYSTEM" : actor.trim().toUpperCase(Locale.ROOT); }
+}
