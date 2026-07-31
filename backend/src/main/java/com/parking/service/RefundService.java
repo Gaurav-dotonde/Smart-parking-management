@@ -357,6 +357,7 @@ public class RefundService {
 
     private long count(List<Refund> rows, RefundStatus status) {
         return rows.stream().filter(r -> r.getRefundStatus() == status).count();
+        
     }
 
     private BigDecimal money(BigDecimal value) {
