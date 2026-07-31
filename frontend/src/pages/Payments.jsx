@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getMyBookings } from '../services/bookingService';
 import { getPaymentAvailability } from '../utils/paymentAvailability';
+import { getUserRefundById, getUserRefunds } from '../services/refundService';
 
 function StatCard({ tone, label, value, subtext, icon, onClick }) {
   return (
@@ -19,6 +20,19 @@ function StatCard({ tone, label, value, subtext, icon, onClick }) {
 
 function Badge({ tone, children }) {
   return <span className={`payments-badge tone-${tone}`}>{children}</span>;
+}
+
+const refundLabels = {
+  REQUESTED: 'Refund Requested',
+  INITIATED: 'Refund Initiated',
+  PROCESSING: 'Refund Processing',
+  COMPLETED: 'Refund Completed',
+  FAILED: 'Refund Failed',
+  REJECTED: 'Refund Rejected',
+};
+
+function RefundBadge({ status }) {
+  return <span className={`refund-status-badge status-${String(status || '').toLowerCase()}`}>{refundLabels[status] || status}</span>;
 }
 
 function formatDate(value) {
@@ -46,6 +60,7 @@ function statusTone(status) {
 
 export default function Payments() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -54,7 +69,12 @@ export default function Payments() {
   const [locationFilter, setLocationFilter] = useState('All Locations');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [activeTab, setActiveTab] = useState('history');
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(location.search).get('tab') === 'refunds' ? 'refunds' : 'history');
+  const [refundPage, setRefundPage] = useState({ content: [], page: 0, totalElements: 0, totalPages: 0 });
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundError, setRefundError] = useState('');
+  const [selectedRefund, setSelectedRefund] = useState(null);
+  const [refundDetailsLoading, setRefundDetailsLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -79,6 +99,29 @@ export default function Payments() {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'refunds') return;
+    setRefundLoading(true);
+    setRefundError('');
+    getUserRefunds({ page: refundPage.page, size: 10, status: statusFilter === 'All Status' ? undefined : statusFilter })
+      .then((response) => setRefundPage(response.data || { content: [], page: 0, totalElements: 0, totalPages: 0 }))
+      .catch((requestError) => setRefundError(requestError.response?.data?.message || 'Unable to load refund records.'))
+      .finally(() => setRefundLoading(false));
+  }, [activeTab, refundPage.page, statusFilter]);
+
+  const openRefundDetails = async (refundId) => {
+    setRefundDetailsLoading(true);
+    setRefundError('');
+    try {
+      const response = await getUserRefundById(refundId);
+      setSelectedRefund(response.data);
+    } catch (requestError) {
+      setRefundError(requestError.response?.data?.message || 'Unable to load refund details.');
+    } finally {
+      setRefundDetailsLoading(false);
+    }
+  };
+
   const filteredPayments = useMemo(() => {
     const query = searchText.trim().toLowerCase();
     const from = fromDate ? new Date(`${fromDate}T00:00:00`) : null;
@@ -96,10 +139,7 @@ export default function Payments() {
             .some((value) => String(value).toLowerCase().includes(query));
         const paymentStatus = booking.paymentStatus || (booking.status === 'CANCELLED' ? 'REFUND' : 'PAID');
         const matchesStatus = statusFilter === 'All Status' || paymentStatus === statusFilter;
-        const matchesTab =
-          activeTab === 'history' ||
-          (activeTab === 'pending' && paymentStatus === 'PENDING') ||
-          (activeTab === 'refunds' && ['REFUND', 'REFUNDED'].includes(paymentStatus));
+        const matchesTab = activeTab === 'history' || (activeTab === 'pending' && paymentStatus === 'PENDING');
         const matchesLocation = locationFilter === 'All Locations' || booking.lotName === locationFilter;
         const matchesFrom = !from || bookingDate >= from;
         const matchesTo = !to || bookingDate <= to;
@@ -172,20 +212,20 @@ export default function Payments() {
               Pending <span>{bookings.filter((item) => item.paymentStatus === 'PENDING').length}</span>
             </button>
             <button type="button" role="tab" aria-selected={activeTab === 'refunds'} className={activeTab === 'refunds' ? 'active' : ''} onClick={() => setActiveTab('refunds')}>
-              Refunds <span>{bookings.filter((item) => item.status === 'CANCELLED' || ['REFUND', 'REFUNDED'].includes(item.paymentStatus)).length}</span>
+              Refunds <span>{refundPage.totalElements}</span>
             </button>
           </div>
 
-          {error && <p className="error-text">{error}</p>}
-          {loading && <p>Loading payment records...</p>}
+          {activeTab !== 'refunds' && error && <p className="error-text">{error}</p>}
+          {activeTab !== 'refunds' && loading && <p>Loading payment records...</p>}
 
-          {!loading && filteredPayments.length === 0 && (
+          {activeTab !== 'refunds' && !loading && filteredPayments.length === 0 && (
             <div className="empty-state">
               No payment records available for the selected filters.
             </div>
           )}
 
-          {!loading && filteredPayments.length > 0 && (
+          {activeTab !== 'refunds' && !loading && filteredPayments.length > 0 && (
             <div className="dashboard-table-wrap user-responsive-table">
               <table className="dashboard-table payments-table">
                 <thead>
@@ -255,8 +295,42 @@ export default function Payments() {
             </div>
           )}
 
+          {activeTab === 'refunds' && refundError && <p className="error-text">{refundError}</p>}
+          {activeTab === 'refunds' && refundLoading && <div className="refund-loading-state">Loading refund records...</div>}
+          {activeTab === 'refunds' && !refundLoading && !refundPage.content?.length && (
+            <div className="empty-state">No refunds yet. Cancelled paid bookings and their refund updates will appear here.</div>
+          )}
+          {activeTab === 'refunds' && !refundLoading && !!refundPage.content?.length && (
+            <div className="dashboard-table-wrap user-responsive-table refund-history-table-wrap">
+              <table className="dashboard-table refund-history-table">
+                <thead><tr><th>Refund ID</th><th>Booking</th><th>Location / Slot</th><th>Original</th><th>Fee</th><th>Refund</th><th>Method</th><th>Status</th><th>Requested</th><th>Processed</th><th>Action</th></tr></thead>
+                <tbody>{refundPage.content.map((refund) => <tr key={refund.refundId}>
+                  <td><strong>{refund.refundId}</strong><small>Attempt {refund.attemptNumber}</small></td>
+                  <td>#{refund.bookingId}</td>
+                  <td>{refund.parkingLocation}<small>{refund.slotNumber}</small></td>
+                  <td>{formatCurrency(refund.originalPaymentAmount)}</td>
+                  <td>{formatCurrency(refund.cancellationFee)}</td>
+                  <td><strong>{formatCurrency(refund.refundAmount)}</strong></td>
+                  <td>{refund.refundMethod || 'Original method'}</td>
+                  <td><RefundBadge status={refund.refundStatus} /></td>
+                  <td>{formatDate(refund.requestedAt)}</td>
+                  <td>{refund.processedAt ? formatDate(refund.processedAt) : 'Pending'}</td>
+                  <td><button type="button" className="btn btn-secondary payments-view-btn" disabled={refundDetailsLoading} onClick={() => openRefundDetails(refund.refundId)}>View</button></td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'refunds' && refundPage.totalPages > 1 && (
+            <div className="payments-pagination">
+              <button type="button" disabled={refundPage.page === 0} onClick={() => setRefundPage((current) => ({ ...current, page: current.page - 1 }))}>Previous</button>
+              <span>Page {refundPage.page + 1} of {refundPage.totalPages}</span>
+              <button type="button" disabled={refundPage.page + 1 >= refundPage.totalPages} onClick={() => setRefundPage((current) => ({ ...current, page: current.page + 1 }))}>Next</button>
+            </div>
+          )}
+
           <div className="payments-footer">
-            <span>Showing {filteredPayments.length} of {bookings.length} bookings</span>
+            <span>{activeTab === 'refunds' ? `Showing ${refundPage.content?.length || 0} of ${refundPage.totalElements} refunds` : `Showing ${filteredPayments.length} of ${bookings.length} bookings`}</span>
           </div>
         </div>
 
@@ -278,6 +352,26 @@ export default function Payments() {
           </div>
         </aside>
       </section>
+      {selectedRefund && (
+        <div className="modal-backdrop refund-detail-backdrop" onClick={() => setSelectedRefund(null)}>
+          <div className="modal-card refund-detail-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="dashboard-section-head"><div><h3>Refund Details</h3><p>{selectedRefund.refundId}</p></div><button type="button" className="modal-close" onClick={() => setSelectedRefund(null)}>×</button></div>
+            <div className="refund-detail-grid">
+              <div><span>Payment ID</span><strong>#{selectedRefund.paymentId}</strong></div>
+              <div><span>Booking ID</span><strong>#{selectedRefund.bookingId}</strong></div>
+              <div><span>Parking</span><strong>{selectedRefund.parkingLocation} · {selectedRefund.slotNumber}</strong></div>
+              <div><span>Cancelled</span><strong>{selectedRefund.bookingCancelledAt ? new Date(selectedRefund.bookingCancelledAt).toLocaleString() : 'N/A'}</strong></div>
+              <div><span>Original Payment</span><strong>{formatCurrency(selectedRefund.originalPaymentAmount)}</strong></div>
+              <div><span>Cancellation Fee</span><strong>{formatCurrency(selectedRefund.cancellationFee)}</strong></div>
+              <div><span>Refund Amount</span><strong>{formatCurrency(selectedRefund.refundAmount)}</strong></div>
+              <div><span>Method</span><strong>{selectedRefund.refundMethod}</strong></div>
+            </div>
+            <div className="refund-current-status"><RefundBadge status={selectedRefund.refundStatus} /><p>{selectedRefund.refundStatus === 'REQUESTED' ? 'Your refund request has been received.' : selectedRefund.refundStatus === 'INITIATED' ? 'Your refund has been initiated.' : selectedRefund.refundStatus === 'PROCESSING' ? 'Your refund is currently being processed.' : selectedRefund.refundStatus === 'COMPLETED' ? 'Your refund was completed successfully.' : selectedRefund.refundStatus === 'FAILED' ? 'The refund could not be completed. Our team will review it.' : 'The refund request was rejected.'}</p>{['PROCESSING', 'COMPLETED'].includes(selectedRefund.refundStatus) && <small>The credited amount may take 5–7 business days to appear, depending on the payment provider.</small>}</div>
+            {selectedRefund.failureReason && <div className="refund-safe-error">{selectedRefund.failureReason}</div>}
+            <div className="refund-timeline">{selectedRefund.timeline?.map((item) => <div key={`${item.status}-${item.timestamp}`}><i /><span><strong>{refundLabels[item.status] || item.status}</strong><small>{new Date(item.timestamp).toLocaleString()}</small></span></div>)}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

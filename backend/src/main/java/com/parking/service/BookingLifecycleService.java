@@ -110,7 +110,6 @@ public class BookingLifecycleService {
     private void refreshLot(ParkingLot lot) {
         lot.setAvailableSlots((int) slotRepository.countByParkingLotIdAndArchivedFalseAndStatus(lot.getId(), SlotStatus.AVAILABLE));
         lot.setReservedSlots((int) slotRepository.countByParkingLotIdAndArchivedFalseAndStatus(lot.getId(), SlotStatus.RESERVED));
-        lot.setOccupiedSlots((int) slotRepository.countByParkingLotIdAndArchivedFalseAndStatus(lot.getId(), SlotStatus.OCCUPIED));
         lot.setMaintenanceSlots((int) slotRepository.countByParkingLotIdAndArchivedFalseAndStatus(lot.getId(), SlotStatus.MAINTENANCE));
         lot.setDisabledSlots((int) (
                 slotRepository.countByParkingLotIdAndArchivedFalseAndStatus(lot.getId(), SlotStatus.INACTIVE)

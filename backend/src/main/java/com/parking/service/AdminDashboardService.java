@@ -138,7 +138,6 @@ public class AdminDashboardService {
                         List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE, BookingStatus.OCCUPIED)),
                 bookingRepository.countByStatusIn(List.of(BookingStatus.RESERVED, BookingStatus.ACTIVE)),
                 bookingRepository.countByStatus(BookingStatus.RESERVED),
-                parkingSlotRepository.countByArchivedFalseAndStatus(SlotStatus.OCCUPIED),
                 parkingSlotRepository.countByArchivedFalseAndStatus(SlotStatus.MAINTENANCE),
                 parkingSlotRepository.countByArchivedFalseAndStatus(SlotStatus.INACTIVE)
                         + parkingSlotRepository.countByArchivedFalseAndStatus(SlotStatus.DISABLED),

@@ -4,6 +4,7 @@ import { formatDisplayName } from '../utils/formatDisplayName';
 import { cancelAdminBooking, extendAdminBooking, getAdminBookingById, getAdminBookings, transitionAdminBooking } from '../services/bookingService';
 import { onParkingDataChanged } from '../services/dataSync';
 import { unwrapList } from '../services/parkingService';
+import { getAdminRefunds } from '../services/refundService';
 
 const summaryCards = [
   { title: 'Total Bookings', key: 'total', tone: 'blue' },
@@ -107,8 +108,19 @@ export default function AdminBookings() {
     if (!silent) setLoading(true);
     setError('');
     try {
-      const res = await getAdminBookings();
-      setBookings(unwrapList(res.data));
+      const [bookingResponse, refundResponse] = await Promise.all([
+        getAdminBookings(),
+        getAdminRefunds({ page: 0, size: 200 }),
+      ]);
+      const latestRefundByBooking = new Map();
+      (refundResponse.data?.content || []).forEach((refund) => {
+        if (!latestRefundByBooking.has(String(refund.bookingId))) latestRefundByBooking.set(String(refund.bookingId), refund);
+      });
+      setBookings(unwrapList(bookingResponse.data).map((booking) => ({
+        ...booking,
+        refundStatus: latestRefundByBooking.get(String(booking.id))?.refundStatus || null,
+        refundId: latestRefundByBooking.get(String(booking.id))?.refundId || null,
+      })));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load bookings.');
     } finally {
@@ -161,6 +173,7 @@ export default function AdminBookings() {
         vehicleNumber: items.map((item) => item.vehicleNumber).join(', '),
         bookingStatus: bookingStatuses.length === 1 ? bookingStatuses[0] : 'MIXED',
         paymentStatus: paymentStatuses.length === 1 ? paymentStatuses[0] : 'MIXED',
+        refundStatus: [...new Set(items.map((item) => item.refundStatus).filter(Boolean))].join(', ') || null,
         amount: items.reduce((sum, item) => sum + Number(item.amount || 0), 0),
         _items: items,
         _sortId: Math.min(...items.map((item) => Number(item.id))),
@@ -327,7 +340,7 @@ export default function AdminBookings() {
                           {booking.overstay ? 'OVERSTAY' : booking.bookingStatus}
                         </span>
                       </td>
-                      <td>{booking.paymentStatus}</td>
+                      <td><span>{booking.paymentStatus}</span>{booking.bookingStatus === 'CANCELLED' && booking.refundStatus && <small><span className={`refund-status-badge ${String(booking.refundStatus).toLowerCase()}`}>REFUND {booking.refundStatus}</span></small>}</td>
                       <td>Rs {booking.amount}</td>
                       <td>
                         <div className="manage-slots-actions">

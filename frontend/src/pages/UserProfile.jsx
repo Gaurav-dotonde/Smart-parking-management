@@ -269,17 +269,6 @@ export default function UserProfile() {
           <button type="button" onClick={() => { setModalError(''); setActiveModal('password'); }}><Icon name="lock" /> Change Password</button>
         </article>
 
-        <article className="user-page-card user-profile-private-card">
-          <div className="user-profile-private-heading">
-            <span className="profile-card-icon"><Icon name="mail" /></span>
-            <div><h3>Contact Details</h3><p>Manage your contact details securely.</p></div>
-          </div>
-          <div className="user-profile-private-visual is-mail"><Icon name="mail" /></div>
-          <strong>Information is private</strong>
-          <p>Your contact details are hidden for security reasons.</p>
-          <button type="button" onClick={openEditModal}><Icon name="eye" /> View / Edit Contact Details</button>
-        </article>
-
         <article className="user-page-card user-profile-private-card is-danger">
           <div className="user-profile-private-heading">
             <span className="profile-card-icon"><Icon name="shield" /></span>

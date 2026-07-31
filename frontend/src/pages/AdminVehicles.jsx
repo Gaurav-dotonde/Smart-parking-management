@@ -206,7 +206,7 @@ export default function AdminVehicles() {
         <div className="form-group"><label>Vehicle Type</label><select value={type} onChange={(event) => setType(event.target.value)}><option value="ALL">All</option>{['TWO_WHEELER', 'CAR'].map((item) => <option key={item}>{item}</option>)}</select></div>
       </div>
     </section>
-    <section className="card users-card" ref={tableRef}>
+    <section className="card users-card admin-vehicles-table-card" ref={tableRef}>
       {error && <div className="error-text">{error}</div>}
       {loading ? <div className="empty-state">Loading vehicles...</div> : !visible.length ? <div className="empty-state">{archivedView ? 'No archived vehicles found.' : 'No vehicles found.'}</div> : <div className="dashboard-table-wrap">
         <table className="dashboard-table admin-vehicles-table"><thead><tr><th>ID</th><th>Registration</th><th>Owner</th><th>Type</th><th>Brand / Model</th><th>Color</th><th>Status</th><th>Actions</th></tr></thead>
@@ -214,14 +214,17 @@ export default function AdminVehicles() {
             <td>{vehicle.id}</td><td><strong>{vehicle.registrationNumber}</strong></td><td>{vehicle.ownerName}<small>{vehicle.ownerEmail}</small></td>
             <td>{vehicle.vehicleType}</td><td>{[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'N/A'}</td><td>{vehicle.color || 'N/A'}</td>
             <td><span className={`badge ${vehicle.active && !vehicle.archived ? 'badge-active' : 'badge-cancelled'}`}>{vehicle.archived ? 'ARCHIVED' : vehicle.active ? 'ACTIVE' : 'INACTIVE'}</span></td>
-            <td><div className="manage-slots-actions">
+            <td><div className="manage-slots-actions vehicle-table-actions">
               <button className="btn btn-secondary" disabled={runningId === vehicle.id} onClick={() => setViewing(vehicle)}>View</button>
               {archivedView
                 ? <button className="btn" disabled={runningId === vehicle.id} onClick={() => setRestoreTarget(vehicle)}>{runningId === vehicle.id ? 'Restoring...' : 'Restore'}</button>
                 : <>
                   <button className="btn btn-secondary" disabled={runningId === vehicle.id} onClick={() => open(vehicle)}>Edit</button>
                   <button className="btn btn-secondary" disabled={runningId === vehicle.id} onClick={() => setStatusTarget(vehicle)}>{runningId === vehicle.id ? 'Updating...' : vehicle.active ? 'Deactivate' : 'Activate'}</button>
-                  <button className="btn btn-danger" disabled={runningId === vehicle.id} onClick={() => setConfirming(vehicle)}>Archive</button>
+                  <button className="btn btn-danger vehicle-archive-btn" disabled={runningId === vehicle.id} onClick={() => setConfirming(vehicle)}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M6 7l1 13h10l1-13M9 11v5m6-5v5M8 4h8l1 3H7l1-3Z" /></svg>
+                    Archive
+                  </button>
                 </>}
             </div></td>
           </tr>)}</tbody>

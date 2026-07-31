@@ -206,18 +206,17 @@ public class ParkingLotService {
                     long maintenance = counts.getOrDefault(SlotStatus.MAINTENANCE, 0L);
                     long disabled = counts.getOrDefault(SlotStatus.DISABLED, 0L);
                     return new FloorSummaryResponse(floor, toFloorName(floor), available + reserved + booked + occupied + maintenance + disabled,
-                            available, reserved, booked, occupied, maintenance, disabled);
+                            available, reserved, booked, maintenance, disabled);
                 })
                 .toList();
 
         long available = totalByStatus(matrix, SlotStatus.AVAILABLE);
         long reserved = totalByStatus(matrix, SlotStatus.RESERVED);
         long booked = totalByStatus(matrix, SlotStatus.BOOKED);
-        long occupied = totalByStatus(matrix, SlotStatus.OCCUPIED);
         long maintenance = totalByStatus(matrix, SlotStatus.MAINTENANCE);
         long disabled = totalByStatus(matrix, SlotStatus.DISABLED);
 
-        return new ParkingSlotSummaryResponse(id, lot.getName(), total, available, reserved, booked, occupied, maintenance, disabled, floorSummaries);
+        return new ParkingSlotSummaryResponse(id, lot.getName(), total, available, reserved, booked, maintenance, disabled, floorSummaries);
     }
 
     @Transactional(readOnly = true)
@@ -245,12 +244,12 @@ public class ParkingLotService {
             long maintenance = counts.getOrDefault(SlotStatus.MAINTENANCE, 0L);
             long disabled = counts.getOrDefault(SlotStatus.DISABLED, 0L);
             return new FloorSummaryResponse(floor, toFloorName(floor), available + reserved + booked + occupied + maintenance + disabled,
-                    available, reserved, booked, occupied, maintenance, disabled);
+                    available, reserved, booked, maintenance, disabled);
         }).toList();
         return new ParkingSlotSummaryResponse(null, "All Locations", total,
                 totalByStatus(matrix, SlotStatus.AVAILABLE), totalByStatus(matrix, SlotStatus.RESERVED),
-                totalByStatus(matrix, SlotStatus.BOOKED), totalByStatus(matrix, SlotStatus.OCCUPIED),
-                totalByStatus(matrix, SlotStatus.MAINTENANCE), totalByStatus(matrix, SlotStatus.DISABLED), floors);
+                totalByStatus(matrix, SlotStatus.BOOKED), totalByStatus(matrix, SlotStatus.MAINTENANCE),
+                totalByStatus(matrix, SlotStatus.DISABLED), floors);
     }
 
     @Transactional(readOnly = true)
@@ -564,7 +563,6 @@ public class ParkingLotService {
         lot.setAvailableSlots(statusCount(lot, SlotStatus.AVAILABLE));
         lot.setBookedSlots(statusCount(lot, SlotStatus.BOOKED));
         lot.setReservedSlots(statusCount(lot, SlotStatus.RESERVED));
-        lot.setOccupiedSlots(statusCount(lot, SlotStatus.OCCUPIED));
         lot.setMaintenanceSlots(statusCount(lot, SlotStatus.MAINTENANCE));
         lot.setDisabledSlots(statusCount(lot, SlotStatus.DISABLED));
         return parkingLotRepository.save(lot);

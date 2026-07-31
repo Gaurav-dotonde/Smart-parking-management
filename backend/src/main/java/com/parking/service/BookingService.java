@@ -37,6 +37,7 @@ public class BookingService {
     private final VehicleRepository vehicleRepository;
     private final PaymentRepository paymentRepository;
     private final BookingExtensionRepository bookingExtensionRepository;
+    private final RefundService refundService;
 
     @Value("${parking.booking.early-checkin-minutes:15}")
     private long earlyCheckInMinutes;
@@ -134,7 +135,9 @@ public class BookingService {
 
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setCancelledAt(LocalDateTime.now());
+        booking.setCancellationReason("Cancelled by user");
         bookingRepository.save(Objects.requireNonNull(booking, "booking must not be null"));
+        refundService.requestForCancelledBooking(booking, "USER");
 
         ParkingSlot slot = parkingSlotRepository.findByIdForUpdate(
                         Objects.requireNonNull(booking.getSlot().getId(), "slotId must not be null"))
@@ -184,10 +187,9 @@ public class BookingService {
 
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setCancelledAt(LocalDateTime.now());
-        if (booking.getPaymentStatus() == PaymentStatus.PAID) {
-          booking.setPaymentStatus(PaymentStatus.REFUNDED);
-        }
+        booking.setCancellationReason("Cancelled by administrator");
         bookingRepository.save(Objects.requireNonNull(booking, "booking must not be null"));
+        refundService.requestForCancelledBooking(booking, "ADMIN");
 
         ParkingSlot slot = parkingSlotRepository.findByIdForUpdate(
                         Objects.requireNonNull(booking.getSlot().getId(), "slotId must not be null"))
@@ -383,7 +385,6 @@ public class BookingService {
         lot.setAvailableSlots(count(lot, SlotStatus.AVAILABLE));
         lot.setBookedSlots(count(lot, SlotStatus.BOOKED));
         lot.setReservedSlots(count(lot, SlotStatus.RESERVED));
-        lot.setOccupiedSlots(count(lot, SlotStatus.OCCUPIED));
         lot.setMaintenanceSlots(count(lot, SlotStatus.MAINTENANCE));
         lot.setDisabledSlots(count(lot, SlotStatus.INACTIVE) + count(lot, SlotStatus.DISABLED));
         parkingLotRepository.save(lot);

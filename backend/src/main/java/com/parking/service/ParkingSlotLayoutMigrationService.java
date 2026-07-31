@@ -83,7 +83,6 @@ public class ParkingSlotLayoutMigrationService {
         lot.setAvailableSlots(statusCount(lotId, SlotStatus.AVAILABLE));
         lot.setBookedSlots(statusCount(lotId, SlotStatus.BOOKED));
         lot.setReservedSlots(statusCount(lotId, SlotStatus.RESERVED));
-        lot.setOccupiedSlots(statusCount(lotId, SlotStatus.OCCUPIED));
         lot.setMaintenanceSlots(statusCount(lotId, SlotStatus.MAINTENANCE));
         lot.setDisabledSlots(statusCount(lotId, SlotStatus.INACTIVE));
         parkingLotRepository.save(lot);

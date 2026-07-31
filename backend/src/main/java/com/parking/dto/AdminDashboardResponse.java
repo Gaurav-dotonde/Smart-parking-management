@@ -11,7 +11,6 @@ public record AdminDashboardResponse(
         long availableSlots,
         long bookedSlots,
         long reservedSlots,
-        long occupiedSlots,
         long maintenanceSlots,
         long disabledSlots,
         long totalUsers,

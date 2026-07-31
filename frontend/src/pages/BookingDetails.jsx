@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getBookingById } from '../services/bookingService';
+import { getUserRefundById, getUserRefunds } from '../services/refundService';
 
 function DetailIcon({ type }) {
   const paths = {
@@ -35,12 +36,21 @@ export default function BookingDetails() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [refund, setRefund] = useState(null);
 
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    getBookingById(id)
-      .then((res) => { if (mounted) setBooking(res.data); })
+    Promise.all([getBookingById(id), getUserRefunds({ page: 0, size: 100 })])
+      .then(async ([bookingResponse, refundResponse]) => {
+        if (!mounted) return;
+        setBooking(bookingResponse.data);
+        const match = (refundResponse.data?.content || []).find((item) => String(item.bookingId) === String(id));
+        if (match) {
+          const detail = await getUserRefundById(match.refundId);
+          if (mounted) setRefund(detail.data);
+        }
+      })
       .catch((err) => { if (mounted) setError(err.response?.data?.message || 'Failed to load booking details.'); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
@@ -86,9 +96,16 @@ export default function BookingDetails() {
                   <span>Payment status</span>
                   <strong className={`booking-details-payment-badge tone-${statusTone(booking.paymentStatus)}`}>{booking.paymentStatus || 'Pending'}</strong>
                 </div>
+                {refund && <div className="booking-details-payment-row"><span>Refund status</span><strong><span className={`refund-status-badge ${String(refund.refundStatus).toLowerCase()}`}>{refund.refundStatus}</span></strong></div>}
                 <div className="booking-details-secure"><span aria-hidden="true">✓</span><p><strong>Reservation confirmed</strong>Your parking details are securely saved.</p></div>
               </aside>
             </div>
+            {refund && <div className="booking-refund-timeline"><div className="booking-details-card-head"><div><span className="booking-details-kicker">Payment & refund lifecycle</span><h3>Booking timeline</h3></div><span className="booking-details-id">{refund.refundId}</span></div><div className="refund-timeline">
+              <div><span /><p><strong>BOOKING CREATED</strong><small>Your parking reservation was created.</small></p></div>
+              <div><span /><p><strong>PAYMENT COMPLETED</strong><small>Payment #{refund.paymentId} was successfully recorded.</small></p></div>
+              {refund.bookingCancelledAt && <div><span /><p><strong>BOOKING CANCELLED</strong><small>{new Date(refund.bookingCancelledAt).toLocaleString()} · {refund.cancellationReason || 'Cancelled'}</small></p></div>}
+              {(refund.timeline || []).map((item) => <div key={`${item.status}-${item.timestamp}`}><span /><p><strong>REFUND {item.status}</strong><small>{item.message} · {new Date(item.timestamp).toLocaleString()}</small></p></div>)}
+            </div></div>}
           </>
         )}
       </section>

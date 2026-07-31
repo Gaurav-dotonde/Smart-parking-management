@@ -28,6 +28,7 @@ class BookingServiceLifecycleTest {
     @Mock VehicleRepository vehicles;
     @Mock PaymentRepository payments;
     @Mock BookingExtensionRepository extensions;
+    @Mock RefundService refundService;
     @InjectMocks BookingService service;
 
     User user;

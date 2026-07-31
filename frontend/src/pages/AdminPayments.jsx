@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getAdminBookings } from '../services/bookingService';
 import { createAdminPayment, getAdminPayments, refundAdminPayment, verifyAdminPayment } from '../services/paymentService';
+import { getAdminRefundById, getAdminRefunds, retryAdminRefund } from '../services/refundService';
 
 const blank = {
   bookingId: '',
@@ -17,6 +19,9 @@ function getRefundableAmount(payment) {
 }
 
 export default function AdminPayments() {
+  const location = useLocation();
+  const initialParams = new URLSearchParams(location.search);
+  const [tab, setTab] = useState(initialParams.get('tab') === 'refunds' ? 'refunds' : 'payments');
   const [rows, setRows] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +31,16 @@ export default function AdminPayments() {
   const [form, setForm] = useState(null);
   const [refund, setRefund] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [refundRows, setRefundRows] = useState([]);
+  const [refundPage, setRefundPage] = useState(0);
+  const [refundPages, setRefundPages] = useState(0);
+  const [refundStatus, setRefundStatus] = useState(initialParams.get('status') || 'ALL');
+  const [refundFrom, setRefundFrom] = useState('');
+  const [refundTo, setRefundTo] = useState('');
+  const [refundMethod, setRefundMethod] = useState('');
+  const [refundDetail, setRefundDetail] = useState(null);
+  const [retryReason, setRetryReason] = useState('');
+  const [refundLoading, setRefundLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -44,6 +59,65 @@ export default function AdminPayments() {
   useEffect(() => {
     load();
   }, []);
+
+  const loadRefunds = async () => {
+    setRefundLoading(true);
+    try {
+      const response = await getAdminRefunds({
+        page: refundPage, size: 15,
+        status: refundStatus === 'ALL' || refundStatus.includes(',') ? undefined : refundStatus,
+        query: search || undefined, from: refundFrom || undefined, to: refundTo || undefined,
+        paymentMethod: refundMethod || undefined,
+      });
+      let content = response.data?.content || [];
+      if (refundStatus.includes(',')) {
+        const allowed = refundStatus.split(',');
+        content = content.filter((item) => allowed.includes(item.refundStatus));
+      }
+      setRefundRows(content);
+      setRefundPages(response.data?.totalPages || 0);
+      setError('');
+    } catch (err) {
+      setError(msg(err));
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'refunds') loadRefunds();
+  }, [tab, refundPage, refundStatus, refundFrom, refundTo, refundMethod, search]);
+
+  const openRefundDetail = async (refundId) => {
+    try {
+      const response = await getAdminRefundById(refundId);
+      setRefundDetail(response.data);
+      setRetryReason('');
+    } catch (err) { setError(msg(err)); }
+  };
+
+  const retryRefund = async () => {
+    if (!refundDetail || !retryReason.trim()) return;
+    setSaving(true);
+    try {
+      const response = await retryAdminRefund(refundDetail.refundId, retryReason.trim());
+      setRefundDetail(response.data);
+      setRetryReason('');
+      await loadRefunds();
+    } catch (err) { setError(msg(err)); }
+    finally { setSaving(false); }
+  };
+
+  const exportRefunds = () => {
+    const headers = ['Refund ID','Booking ID','User','Email','Payment Reference','Original Amount','Cancellation Fee','Refund Amount','Status','Method','Requested At','Processed At'];
+    const csv = [headers, ...refundRows.map((item) => [item.refundId,item.bookingId,item.userName,item.userEmail,item.paymentReference,item.originalPaymentAmount,item.cancellationFee,item.refundAmount,item.refundStatus,item.paymentMethod,item.requestedAt,item.processedAt])]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    link.download = 'refund-report.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
 
   const visible = useMemo(
     () =>
@@ -125,9 +199,14 @@ export default function AdminPayments() {
           <h2>Payment Management</h2>
           <p>Verify and refund database-backed payment records.</p>
         </div>
-        <button className="btn" onClick={() => setForm(blank)}>
+        {tab === 'payments' && <button className="btn" onClick={() => setForm(blank)}>
           Record Payment
-        </button>
+        </button>}
+      </div>
+
+      <div className="payment-page-tabs" role="tablist">
+        <button className={tab === 'payments' ? 'active' : ''} onClick={() => setTab('payments')}>Payments</button>
+        <button className={tab === 'refunds' ? 'active' : ''} onClick={() => setTab('refunds')}>Refunds</button>
       </div>
 
       <section className="card users-card">
@@ -136,7 +215,7 @@ export default function AdminPayments() {
             <label>Search</label>
             <input value={search} onChange={(event) => setSearch(event.target.value)} />
           </div>
-          <div className="form-group">
+          {tab === 'payments' ? <div className="form-group">
             <label>Status</label>
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
               <option>ALL</option>
@@ -144,13 +223,26 @@ export default function AdminPayments() {
                 <option key={value}>{value}</option>
               ))}
             </select>
-          </div>
+          </div> : <>
+            <div className="form-group"><label>Status</label><select value={refundStatus} onChange={(event) => { setRefundPage(0); setRefundStatus(event.target.value); }}><option value="ALL">All</option><option value="REQUESTED">Requested</option><option value="INITIATED">Initiated</option><option value="PROCESSING">Processing</option><option value="COMPLETED">Completed</option><option value="FAILED">Failed</option><option value="REJECTED">Rejected</option></select></div>
+            <div className="form-group"><label>From</label><input type="date" value={refundFrom} onChange={(event) => setRefundFrom(event.target.value)} /></div>
+            <div className="form-group"><label>To</label><input type="date" value={refundTo} onChange={(event) => setRefundTo(event.target.value)} /></div>
+            <div className="form-group"><label>Payment Method</label><input value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} placeholder="All methods" /></div>
+            <button type="button" className="btn btn-secondary" onClick={exportRefunds} disabled={!refundRows.length}>Export Refund Report</button>
+          </>}
         </div>
       </section>
 
       <section className="card users-card">
         {error && <div className="error-text">{error}</div>}
-        {loading ? (
+        {tab === 'refunds' ? (
+          refundLoading ? <div className="empty-state">Loading refunds...</div> : !refundRows.length ? <div className="empty-state">No refund records found.</div> : <>
+            <div className="dashboard-table-wrap refund-admin-table-wrap"><table className="dashboard-table"><thead><tr><th>Refund ID</th><th>Booking</th><th>User</th><th>Payment</th><th>Original</th><th>Fee</th><th>Refund</th><th>Status</th><th>Method</th><th>Requested</th><th>Processed</th><th>Actions</th></tr></thead>
+              <tbody>{refundRows.map((item) => <tr key={item.refundId}><td><strong>{item.refundId}</strong><small>Attempt {item.attemptNumber}</small></td><td>#{item.bookingId}</td><td>{item.userName}<small>{item.userEmail}</small></td><td>{item.paymentReference || `#${item.paymentId}`}</td><td>₹{Number(item.originalPaymentAmount || 0).toFixed(2)}</td><td>₹{Number(item.cancellationFee || 0).toFixed(2)}</td><td><strong>₹{Number(item.refundAmount || 0).toFixed(2)}</strong></td><td><span className={`refund-status-badge ${String(item.refundStatus).toLowerCase()}`}>{item.refundStatus}</span></td><td>{item.paymentMethod || item.refundMethod}</td><td>{item.requestedAt ? new Date(item.requestedAt).toLocaleString() : '—'}</td><td>{item.processedAt ? new Date(item.processedAt).toLocaleString() : '—'}</td><td><button className="btn btn-secondary" onClick={() => openRefundDetail(item.refundId)}>View Details</button></td></tr>)}</tbody>
+            </table></div>
+            <div className="refund-pagination"><button disabled={refundPage === 0} onClick={() => setRefundPage((value) => value - 1)}>Previous</button><span>Page {refundPage + 1} of {Math.max(refundPages, 1)}</span><button disabled={refundPage + 1 >= refundPages} onClick={() => setRefundPage((value) => value + 1)}>Next</button></div>
+          </>
+        ) : loading ? (
           <div className="empty-state">Loading payments...</div>
         ) : !visible.length ? (
           <div className="empty-state">No payment records found.</div>
@@ -209,6 +301,27 @@ export default function AdminPayments() {
           </div>
         )}
       </section>
+
+      {refundDetail && (
+        <div className="modal-backdrop">
+          <div className="modal-card refund-detail-modal">
+            <div className="dashboard-section-head"><div><h3>Refund Details</h3><p>{refundDetail.refundId} · Attempt {refundDetail.attemptNumber}</p></div><button className="modal-close" onClick={() => setRefundDetail(null)}>×</button></div>
+            <div className="refund-detail-grid">
+              <div><span>User</span><strong>{refundDetail.userName}</strong><small>{refundDetail.userEmail}</small></div>
+              <div><span>Booking / Payment</span><strong>#{refundDetail.bookingId} / #{refundDetail.paymentId}</strong><small>{refundDetail.paymentReference || 'No reference'}</small></div>
+              <div><span>Location / Slot</span><strong>{refundDetail.parkingLocation}</strong><small>{refundDetail.slotNumber}</small></div>
+              <div><span>Status</span><strong><span className={`refund-status-badge ${String(refundDetail.refundStatus).toLowerCase()}`}>{refundDetail.refundStatus}</span></strong></div>
+              <div><span>Original / Fee</span><strong>₹{Number(refundDetail.originalPaymentAmount || 0).toFixed(2)}</strong><small>Fee ₹{Number(refundDetail.cancellationFee || 0).toFixed(2)}</small></div>
+              <div><span>Refund Amount</span><strong>₹{Number(refundDetail.refundAmount || 0).toFixed(2)}</strong><small>{refundDetail.refundMethod || refundDetail.paymentMethod}</small></div>
+              {refundDetail.failureReason && <div className="refund-failure-note"><span>Failure reason</span><strong>{refundDetail.failureReason}</strong></div>}
+            </div>
+            <h4>Status timeline</h4>
+            <div className="refund-timeline">{(refundDetail.timeline || []).map((item) => <div key={`${item.status}-${item.timestamp}`}><span /><p><strong>{item.status}</strong><small>{item.message} · {new Date(item.timestamp).toLocaleString()}</small></p></div>)}</div>
+            {!!refundDetail.attempts?.length && <><h4>Attempt history</h4><div className="refund-attempt-list">{refundDetail.attempts.map((item) => <div key={item.refundId}><strong>Attempt {item.attemptNumber}</strong><span>{item.refundId}</span><span className={`refund-status-badge ${String(item.status).toLowerCase()}`}>{item.status}</span></div>)}</div></>}
+            {refundDetail.refundStatus === 'FAILED' && <div className="refund-retry-box"><label>Retry reason <textarea value={retryReason} onChange={(event) => setRetryReason(event.target.value)} placeholder="Reason is required for the audit history" /></label><button className="btn" disabled={saving || !retryReason.trim()} onClick={retryRefund}>{saving ? 'Retrying...' : 'Retry Refund'}</button></div>}
+          </div>
+        </div>
+      )}
 
       {form && (
         <div className="modal-backdrop payments-record-backdrop">

@@ -53,7 +53,6 @@ function SlotDetailsPanel({ slot, updatedAt, onClose, onBook, panelRef }) {
         <div><dt>Availability Status</dt><dd className="available-slot-details-available">Available</dd></div>
         <div><dt>Last Updated Time</dt><dd>{updatedAt ? updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Just now'}</dd></div>
       </dl>
-      <p className="available-slot-details-note">Current status is shown here. Confirm your visit details in the booking flow to check availability for your required time.</p>
       <button type="button" className="btn available-slot-details-book" onClick={() => onBook(slot)}>Check Availability &amp; Book</button>
     </aside>
   );
