@@ -7,10 +7,6 @@ import com.parking.repository.PaymentRepository;
 import com.parking.repository.RefundRepository;
 import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -208,10 +204,11 @@ public class RefundService {
 
     @Transactional(readOnly = true)
     public RefundPageResponse listUser(Long userId, RefundStatus status, int page, int size) {
-        Pageable pageable = PageRequest.of(validPage(page), validSize(size), refundSort());
-        Page<Refund> result = status == null ? refunds.findByUserId(userId, pageable)
-                : refunds.findByUserIdAndRefundStatus(userId, status, pageable);
-        return page(result);
+        Specification<Refund> spec = (root, cq, cb) -> cb.equal(root.get("user").get("id"), userId);
+        if (status != null) {
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("refundStatus"), status));
+        }
+        return page(refunds.findAll(spec), page, size);
     }
 
     @Transactional(readOnly = true)
@@ -235,9 +232,7 @@ public class RefundService {
                         cb.like(cb.function("str", String.class, booking.get("id")), like));
             });
         }
-        Page<Refund> result = refunds.findAll(spec,
-                PageRequest.of(validPage(page), validSize(size), refundSort()));
-        return page(result);
+        return page(refunds.findAll(spec), page, size);
     }
 
     @Transactional(readOnly = true)
@@ -290,9 +285,21 @@ public class RefundService {
         return money(payment.getAmount()).subtract(money(reserved)).max(BigDecimal.ZERO).setScale(2);
     }
 
-    private RefundPageResponse page(Page<Refund> page) {
-        return new RefundPageResponse(page.getContent().stream().map(this::row).toList(),
-                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    private RefundPageResponse page(List<Refund> rows, int page, int size) {
+        int safePage = validPage(page);
+        int safeSize = validSize(size);
+        List<Refund> ordered = rows.stream()
+                .sorted(Comparator.comparing(
+                        Refund::getCreatedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ).reversed())
+                .toList();
+        int fromIndex = Math.min(safePage * safeSize, ordered.size());
+        int toIndex = Math.min(fromIndex + safeSize, ordered.size());
+        List<Refund> content = ordered.subList(fromIndex, toIndex);
+        int totalPages = ordered.isEmpty() ? 0 : (int) Math.ceil((double) ordered.size() / safeSize);
+        return new RefundPageResponse(content.stream().map(this::row).toList(),
+                safePage, safeSize, ordered.size(), totalPages);
     }
 
     private RefundListItemResponse row(Refund r) {
@@ -355,7 +362,6 @@ public class RefundService {
     private BigDecimal money(BigDecimal value) {
         return Optional.ofNullable(value).orElse(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }
-    private Sort refundSort() { return Sort.sort(Refund.class).by(Refund::getCreatedAt).descending(); }
     private int validPage(int page) { return Math.max(0, page); }
     private int validSize(int size) { return Math.min(100, Math.max(1, size)); }
     private String nextPublicId() { return "RF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT); }
