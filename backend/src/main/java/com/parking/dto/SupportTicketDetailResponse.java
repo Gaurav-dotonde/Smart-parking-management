@@ -21,6 +21,7 @@ public record SupportTicketDetailResponse(
         Long assignedToId,
         LocalDateTime assignedAt,
         String resolutionSummary,
+        String resolutionNotes,
         LocalDateTime resolvedAt,
         String resolvedByName,
         LocalDateTime createdAt,

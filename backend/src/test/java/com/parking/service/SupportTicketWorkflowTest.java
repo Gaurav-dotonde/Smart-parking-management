@@ -70,7 +70,7 @@ class SupportTicketWorkflowTest {
 
     @Test void adminCanResolveWithSummary() {
         when(tickets.findById(10L)).thenReturn(Optional.of(ticket));
-        SupportTicketDetailResponse result = service.resolveTicket(10L, admin, new SupportResolveRequest("Fixed configuration.", null));
+        SupportTicketDetailResponse result = service.resolveTicket(10L, admin, new SupportResolveRequest("Fixed configuration.", null, null));
         assertEquals("RESOLVED", result.status());
         assertNotNull(result.resolvedAt());
         assertEquals("Fixed configuration.", result.resolutionSummary());
@@ -79,7 +79,7 @@ class SupportTicketWorkflowTest {
     @Test void blankResolutionIsRejected() {
         when(tickets.findById(10L)).thenReturn(Optional.of(ticket));
         assertThrows(IllegalArgumentException.class,
-                () -> service.resolveTicket(10L, admin, new SupportResolveRequest("   ", null)));
+                () -> service.resolveTicket(10L, admin, new SupportResolveRequest("   ", null, null)));
     }
 
     @Test void openTicketCannotBeClosed() {

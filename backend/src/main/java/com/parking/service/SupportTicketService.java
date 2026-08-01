@@ -222,6 +222,7 @@ public class SupportTicketService {
         SupportStatus previous = ticket.getStatus();
         transitionStatus(ticket, SupportStatus.RESOLVED);
         ticket.setResolutionSummary(summary);
+        ticket.setResolutionNotes(trimToNull(request.resolutionNotes()));
         ticket.setResolvedAt(LocalDateTime.now());
         ticket.setResolvedBy(admin);
         ticket.setClosedAt(null);
@@ -405,6 +406,7 @@ public class SupportTicketService {
                 assignedTo == null ? null : assignedTo.getId(),
                 ticket.getAssignedAt(),
                 ticket.getResolutionSummary(),
+                ticket.getResolutionNotes(),
                 ticket.getResolvedAt(),
                 ticket.getResolvedBy() == null ? null : ticket.getResolvedBy().getName(),
                 ticket.getCreatedAt(),
