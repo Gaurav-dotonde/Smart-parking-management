@@ -10494,6 +10494,12 @@ button.user-clickable-card {
   overflow-wrap: anywhere;
 }
 
+.support-board-detail-grid small {
+  color: #70849b;
+  font-size: .74rem;
+  overflow-wrap: anywhere;
+}
+
 .support-board-detail-grid .support-badge {
   width: fit-content;
 }
@@ -10687,6 +10693,47 @@ button.user-clickable-card {
 
 .support-board-full-width {
   grid-column: 1 / -1;
+}
+
+.support-board-admin-notes {
+  border: 1px solid #e2eaf4;
+  border-radius: 14px;
+  background: #fbfdff;
+  overflow: hidden;
+}
+
+.support-board-admin-notes summary {
+  padding: 12px 14px;
+  color: #49627e;
+  font-size: .8rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.support-board-admin-notes > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+
+.support-board-admin-notes label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.support-board-admin-notes textarea {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid #cedceb;
+  border-radius: 10px;
+  background: #fff;
+  color: #10213b;
+  font: inherit;
+  resize: vertical;
 }
 
 .support-board-attachments {
@@ -10945,6 +10992,10 @@ button.user-clickable-card {
   }
 
   .support-board-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .support-board-admin-notes > div {
     grid-template-columns: 1fr;
   }
 

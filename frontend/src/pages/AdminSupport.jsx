@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getAdminUsers } from '../services/userService';
 import {
   getAdminSupportSummary,
   getAdminSupportTickets,
   getAdminSupportTicket,
   closeAdminSupportTicket,
+  replyAdminSupportTicket,
   resolveSupportTicket,
   updateSupportTicket,
 } from '../services/supportService';
@@ -218,12 +218,10 @@ export default function AdminSupport() {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [page, setPage] = useState(0);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [adminUsers, setAdminUsers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [detailState, setDetailState] = useState({
     status: 'OPEN',
     priority: 'MEDIUM',
-    assignedToId: '',
     internalNotes: '',
     adminResponse: '',
     resolutionNotes: '',
@@ -264,19 +262,6 @@ export default function AdminSupport() {
   };
 
   useEffect(() => {
-    let mounted = true;
-    getAdminUsers()
-      .then((response) => {
-        if (!mounted) return;
-        setAdminUsers((response.data || []).filter((user) => user.role === 'ADMIN' || user.role === 'ADMINISTRATOR' || user.role === 'SUPER_ADMIN'));
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
     loadList(page, query, statusFilter, priorityFilter, categoryFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, query, statusFilter, priorityFilter, categoryFilter]);
@@ -299,7 +284,6 @@ export default function AdminSupport() {
         setDetailState({
           status: detail?.status || 'OPEN',
           priority: detail?.priority || 'MEDIUM',
-          assignedToId: '',
           internalNotes: Array.isArray(detail?.internalNotes) ? detail.internalNotes[detail.internalNotes.length - 1]?.note || '' : '',
           adminResponse: detail?.resolutionSummary || '',
           resolutionNotes: detail?.resolutionNotes || '',
@@ -318,15 +302,6 @@ export default function AdminSupport() {
     };
   }, [ticketId]);
 
-  useEffect(() => {
-    if (!selectedTicket) return;
-    if (detailState.assignedToId) return;
-    const assigned = adminUsers.find((user) => user.email === selectedTicket.assignedToEmail || user.name === selectedTicket.assignedToName);
-    if (assigned) {
-      setDetailState((current) => ({ ...current, assignedToId: String(assigned.id) }));
-    }
-  }, [selectedTicket, adminUsers, detailState.assignedToId]);
-
   const urgentCount = useMemo(
     () => (ticketsPage.content || []).filter((ticket) => ticket.priority === 'URGENT').length,
     [ticketsPage.content],
@@ -340,7 +315,6 @@ export default function AdminSupport() {
   ]), [summary, urgentCount]);
 
   const selectedTicketId = selectedTicket ? String(selectedTicket.id) : String(ticketId || '');
-  const conversationCount = selectedTicket?.messageCount ?? selectedTicket?.messages?.length ?? 0;
   const showTicketDetail = Boolean(ticketId || selectedTicket || detailLoading || detailError);
   const actionBusy = saving || resolveLoading || closeLoading;
   const detailTicket = selectedTicket ?? {};
@@ -369,12 +343,11 @@ export default function AdminSupport() {
     }
   };
 
-  const persistDraft = async (nextState, includeStatus = true) => {
+  const persistDraft = async (nextState, includeStatus = true, includeInternalNotes = true) => {
     const payload = {
       priority: nextState.priority,
-      assignedToId: nextState.assignedToId ? Number(nextState.assignedToId) : null,
-      internalNotes: nextState.internalNotes,
     };
+    if (includeInternalNotes) payload.internalNotes = nextState.internalNotes;
     if (includeStatus && ['OPEN', 'IN_PROGRESS'].includes(nextState.status)) {
       payload.status = nextState.status;
     }
@@ -432,6 +405,28 @@ export default function AdminSupport() {
     }
   };
 
+  const sendReply = async () => {
+    if (!selectedTicket) return;
+    const message = detailState.adminResponse.trim();
+    if (!message) {
+      setDetailError('Write a reply for the user first.');
+      return;
+    }
+
+    setSaving(true);
+    setDetailError('');
+    try {
+      await persistDraft(detailState, false, false);
+      await replyAdminSupportTicket(selectedTicket.id, { message });
+      setDetailState((current) => ({ ...current, adminResponse: '' }));
+      await refreshAll();
+    } catch (err) {
+      setDetailError(err.response?.data?.message || 'Could not send the reply.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const closeTicket = async () => {
     if (!selectedTicket) return;
     if (!selectedTicket.canClose && detailState.status !== 'CLOSED') {
@@ -469,7 +464,7 @@ export default function AdminSupport() {
 
   const exportCsv = () => {
     const rows = [
-      ['Ticket ID', 'Customer Name', 'Email', 'Category', 'Booking ID', 'Transaction ID', 'Priority', 'Status', 'Created At', 'Assigned Agent'],
+      ['Ticket ID', 'Customer Name', 'Email', 'Category', 'Booking ID', 'Transaction ID', 'Priority', 'Status', 'Created At'],
       ...(ticketsPage.content || []).map((ticket) => ([
         formatTicketId(ticket),
         ticket.userName || '',
@@ -480,7 +475,6 @@ export default function AdminSupport() {
         ticket.priority || '',
         statusLabel(ticket.status),
         ticket.createdAt || '',
-        ticket.assignedToName || 'Unassigned',
       ])),
     ];
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
@@ -602,7 +596,6 @@ export default function AdminSupport() {
                     <th>Priority</th>
                     <th>Status</th>
                     <th>Created Date</th>
-                    <th>Assigned To</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -624,7 +617,6 @@ export default function AdminSupport() {
                         <td><TicketPriority priority={ticket.priority} /></td>
                         <td><TicketStatus status={ticket.status} /></td>
                         <td>{formatDateTime(ticket.createdAt)}</td>
-                        <td>{safeText(ticket.assignedToName, 'Unassigned')}</td>
                         <td>
                           <button type="button" className="support-board-view-btn" onClick={() => selectTicket(ticket)}>
                             View
@@ -706,48 +698,25 @@ export default function AdminSupport() {
                       <strong>{formatTicketId(detailTicket)}</strong>
                     </div>
                     <div>
-                      <span>User Name</span>
+                      <span>Customer</span>
                       <strong>{detailTicket.userName || 'N/A'}</strong>
+                      <small>{detailTicket.userEmail || 'No email'}</small>
                     </div>
                     <div>
-                      <span>User Email</span>
-                      <strong>{detailTicket.userEmail || 'N/A'}</strong>
+                      <span>Status</span>
+                      <strong><TicketStatus status={detailTicket.status} /></strong>
                     </div>
                     <div>
-                      <span>Parking Slot</span>
-                      <strong>{detailTicket.bookingId || 'N/A'}</strong>
-                    </div>
-                    <div>
-                      <span>Subject</span>
-                      <strong>{detailTicket.subject || 'N/A'}</strong>
+                      <span>Received</span>
+                      <strong>{formatDateTime(detailTicket.createdAt)}</strong>
                     </div>
                     <div>
                       <span>Category</span>
                       <strong>{categoryLabel(detailTicket.category || 'OTHER')}</strong>
                     </div>
                     <div>
-                      <span>Priority</span>
-                      <strong>{priorityLabel(detailTicket.priority || 'MEDIUM')}</strong>
-                    </div>
-                    <div>
-                      <span>Date &amp; Time</span>
-                      <strong>{formatDateTime(detailTicket.createdAt)}</strong>
-                    </div>
-                    <div>
-                      <span>Current Status</span>
-                      <strong><TicketStatus status={detailTicket.status} /></strong>
-                    </div>
-                    <div>
-                      <span>Assigned Admin</span>
-                      <strong>{safeText(detailTicket.assignedToName, 'Unassigned')}</strong>
-                    </div>
-                    <div>
-                      <span>Messages</span>
-                      <strong>{conversationCount}</strong>
-                    </div>
-                    <div>
-                      <span>Resolved At</span>
-                      <strong>{formatDateTime(detailTicket.resolvedAt)}</strong>
+                      <span>Booking reference</span>
+                      <strong>{safeText(detailTicket.bookingId, 'Not linked')}</strong>
                     </div>
                   </div>
 
@@ -797,8 +766,8 @@ export default function AdminSupport() {
                   <div className="support-board-form-head">
                     <div>
                       <span className="support-board-kicker">Resolution</span>
-                      <h4>Resolve Ticket</h4>
-                      <p>Keep the customer response clear, then save the status update.</p>
+                      <h4>Ticket actions</h4>
+                      <p>Update ownership, send the user a reply, or resolve the request.</p>
                     </div>
                     {actionBusy && (
                       <div className="support-board-saving">
@@ -822,50 +791,43 @@ export default function AdminSupport() {
                       </select>
                     </label>
                     <label className="support-board-full-width">
-                      Assigned Admin
-                      <select value={detailState.assignedToId} onChange={(event) => setDetailState((current) => ({ ...current, assignedToId: event.target.value }))}>
-                        <option value="">Unassigned</option>
-                        {adminUsers.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.name} ({user.email})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="support-board-full-width">
-                      Admin Response *
+                      Message to user
                       <textarea
-                        rows={5}
-                        required
+                        rows={4}
                         value={detailState.adminResponse}
                         onChange={(event) => setDetailState((current) => ({ ...current, adminResponse: event.target.value }))}
-                        placeholder="Write the response that the user should see..."
-                      />
-                    </label>
-                    <label className="support-board-full-width">
-                      Resolution Notes
-                      <textarea
-                        rows={4}
-                        value={detailState.resolutionNotes}
-                        onChange={(event) => setDetailState((current) => ({ ...current, resolutionNotes: event.target.value }))}
-                        placeholder="Optional internal notes about how the issue was resolved"
-                      />
-                    </label>
-                    <label className="support-board-full-width">
-                      Internal Notes
-                      <textarea
-                        rows={4}
-                        value={detailState.internalNotes}
-                        onChange={(event) => setDetailState((current) => ({ ...current, internalNotes: event.target.value }))}
-                        placeholder="Visible only to the admin team"
+                        placeholder="Write a clear update for the user..."
                       />
                     </label>
                   </div>
 
+                  <details className="support-board-admin-notes">
+                    <summary>Internal notes and resolution details (optional)</summary>
+                    <div>
+                      <label>
+                        Internal note
+                        <textarea rows={3} value={detailState.internalNotes} onChange={(event) => setDetailState((current) => ({ ...current, internalNotes: event.target.value }))} placeholder="Visible only to the support team" />
+                      </label>
+                      <label>
+                        Resolution detail
+                        <textarea rows={3} value={detailState.resolutionNotes} onChange={(event) => setDetailState((current) => ({ ...current, resolutionNotes: event.target.value }))} placeholder="Optional record for the final resolution" />
+                      </label>
+                    </div>
+                  </details>
+
                   <div className="support-board-actions">
                     <button type="submit" className="support-board-action is-secondary" disabled={actionBusy}>
                       <AdminIcon name="assign" />
-                      <span>{saving ? 'Saving...' : 'Save'}</span>
+                      <span>{saving ? 'Saving...' : 'Save changes'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="support-board-action is-primary"
+                      onClick={sendReply}
+                      disabled={actionBusy || !detailState.adminResponse.trim()}
+                    >
+                      <AdminIcon name="reply" />
+                      <span>{saving ? 'Sending...' : 'Send reply'}</span>
                     </button>
                     <button
                       type="button"
@@ -885,8 +847,8 @@ export default function AdminSupport() {
                       <AdminIcon name="close" />
                       <span>{closeLoading ? 'Closing...' : 'Close Ticket'}</span>
                     </button>
-                    <button type="button" className="support-board-action is-primary" onClick={closeTicketDetail} disabled={actionBusy}>
-                      Cancel
+                    <button type="button" className="support-board-action is-secondary" onClick={closeTicketDetail} disabled={actionBusy}>
+                      Back
                     </button>
                   </div>
                 </form>
@@ -922,16 +884,6 @@ export default function AdminSupport() {
                           </div>
                           <time>{formatDateTime(detailTicket.createdAt)}</time>
                         </div>
-                        {detailTicket.assignedToName && (
-                          <div className="support-board-timeline-item">
-                            <span />
-                            <div>
-                              <strong>Assigned</strong>
-                              <p>to {detailTicket.assignedToName}</p>
-                            </div>
-                            <time>{formatDateTime(detailTicket.updatedAt || detailTicket.createdAt)}</time>
-                          </div>
-                        )}
                         {Array.isArray(detailTicket.history) && detailTicket.history.map((item) => (
                           <div key={item.id} className="support-board-timeline-item">
                             <span />

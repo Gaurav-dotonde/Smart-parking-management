@@ -28,7 +28,7 @@ public class SupportTicket {
     @Column(name = "internal_notes", length = 4000) private String legacyInternalNotes;
     @Column(name = "assigned_at") private LocalDateTime assignedAt;
     @Column(name = "resolution_summary", length = 4000) private String resolutionSummary;
-    @Column(name = "resolution_notes", length = 4000) private String resolutionNotes;
+    @Lob @Column(name = "resolution_notes") private String resolutionNotes;
     @Column(name = "resolved_at") private LocalDateTime resolvedAt;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "resolved_by_id") private User resolvedBy;
     @Column(nullable = false, updatable = false) @Builder.Default private LocalDateTime createdAt = LocalDateTime.now();
