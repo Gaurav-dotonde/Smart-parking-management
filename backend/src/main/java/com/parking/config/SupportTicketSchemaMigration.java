@@ -36,6 +36,25 @@ public class SupportTicketSchemaMigration implements ApplicationRunner {
         addColumnIfMissing("closed_at", "DATETIME NULL");
         addColumnIfMissing("closed_by_id", "BIGINT NULL");
         addColumnIfMissing("version", "BIGINT NULL");
+
+        // Preserve legacy data and normalize rows written by older builds.
+        jdbcTemplate.update("""
+                UPDATE support_tickets
+                SET category = 'PAYMENT_ISSUE'
+                WHERE category = 'PAYMENT'
+                """);
+        jdbcTemplate.update("""
+                UPDATE support_tickets
+                SET ticket_number = CONCAT('SUP-', LPAD(id, 6, '0'))
+                WHERE ticket_number IS NULL OR ticket_number = ''
+                """);
+        jdbcTemplate.update("""
+                UPDATE support_tickets
+                SET resolution_notes = admin_reply
+                WHERE resolution_notes IS NULL
+                  AND admin_reply IS NOT NULL
+                  AND admin_reply <> ''
+                """);
     }
 
     private void addColumnIfMissing(String column, String definition) {
