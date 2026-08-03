@@ -68,10 +68,6 @@ function buildFormData(payload, files = []) {
   return formData;
 }
 
-function summaryTone(index) {
-  return ['blue', 'amber', 'purple', 'green'][index] || 'blue';
-}
-
 function TicketStatus({ status }) {
   const key = status || 'OPEN';
   return <span className={`support-status ${statusClass[key] || 'open'}`}>{statusLabels[key] || key}</span>;
@@ -128,16 +124,18 @@ function isAllowedAttachment(file) {
   return file.size <= 5 * 1024 * 1024 && allowedMimeTypes.includes(file.type) && hasAllowedExtension;
 }
 
+const getSupportStatusParam = (status) => (status && status !== 'ALL' ? status : undefined);
+
 export default function UserSupport() {
   const { ticketId } = useParams();
   const navigate = useNavigate();
-  const [summary, setSummary] = useState({ totalTickets: 0, open: 0, inProgress: 0, resolved: 0 });
+  const [summary, setSummary] = useState({ totalTickets: 0, open: 0, inProgress: 0, resolved: 0, closed: 0 });
   const [ticketsPage, setTicketsPage] = useState({ content: [], page: 0, size: 10, totalPages: 0, totalElements: 0 });
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [page, setPage] = useState(0);
   const [refreshToken, setRefreshToken] = useState(0);
   const [createState, setCreateState] = useState({ saving: false, message: '', error: '' });
@@ -163,13 +161,14 @@ export default function UserSupport() {
     try {
       const [summaryResult, ticketsResult] = await Promise.all([
         getMySupportSummary(),
-        getMySupportTickets({ page: nextPage, size: 10, query: nextQuery || undefined, status: statusFilter || undefined }),
+        getMySupportTickets({ page: nextPage, size: 10, query: nextQuery || undefined, status: getSupportStatusParam(statusFilter) }),
       ]);
       setSummary({
         totalTickets: summaryResult.data?.totalTickets || 0,
         open: summaryResult.data?.open || 0,
         inProgress: summaryResult.data?.inProgress || 0,
         resolved: summaryResult.data?.resolved || 0,
+        closed: summaryResult.data?.closed || 0,
       });
       setTicketsPage(getTicketsPageData(ticketsResult));
       setError('');
@@ -185,7 +184,7 @@ export default function UserSupport() {
     let mounted = true;
     setLoading(true);
     setListLoading(true);
-    Promise.all([getMySupportSummary(), getMySupportTickets({ page, size: 10, query: query || undefined, status: statusFilter || undefined })])
+    Promise.all([getMySupportSummary(), getMySupportTickets({ page, size: 10, query: query || undefined, status: getSupportStatusParam(statusFilter) })])
       .then(([summaryResult, ticketsResult]) => {
         if (!mounted) return;
         setSummary({
@@ -193,6 +192,7 @@ export default function UserSupport() {
           open: summaryResult.data?.open || 0,
           inProgress: summaryResult.data?.inProgress || 0,
           resolved: summaryResult.data?.resolved || 0,
+          closed: summaryResult.data?.closed || 0,
         });
         setTicketsPage(getTicketsPageData(ticketsResult));
         setError('');
@@ -241,11 +241,11 @@ export default function UserSupport() {
     };
   }, [ticketId]);
 
-  const stats = useMemo(() => ([
-    { label: 'Total Tickets', value: summary.totalTickets, icon: '🎫' },
-    { label: 'Open', value: summary.open, icon: '🔵' },
-    { label: 'In Progress', value: summary.inProgress, icon: '🟠' },
-    { label: 'Resolved', value: summary.resolved, icon: '🟢' },
+  const supportCards = useMemo(() => ([
+    { label: 'All', value: summary.totalTickets, note: 'Total Support Tickets', icon: '?', status: 'ALL', tone: 'gray' },
+    { label: 'Open', value: summary.open, note: 'Needs first response', icon: '?', status: 'OPEN', tone: 'blue' },
+    { label: 'Resolved', value: summary.resolved, note: 'Successfully Resolved', icon: '?', status: 'RESOLVED', tone: 'green' },
+    { label: 'In Progress', value: summary.inProgress, note: 'Being handled by support', icon: '?', status: 'IN_PROGRESS', tone: 'amber' },
   ]), [summary]);
 
   const handleSearch = (event) => {
@@ -397,24 +397,26 @@ export default function UserSupport() {
       </section>
 
       <section className="support-summary-grid">
-        {stats.map((item, index) => (
+        {supportCards.map((item) => (
           <article
             key={item.label}
-            className={`support-summary-card tone-${summaryTone(index)}`}
+            className={`support-summary-card tone-${item.tone} ${statusFilter === item.status ? 'is-active' : ''}`}
             role="button"
             tabIndex={0}
-            onClick={() => { setPage(0); setStatusFilter(['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'][index]); }}
+            aria-pressed={statusFilter === item.status}
+            onClick={() => { setPage(0); setStatusFilter(item.status); }}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 setPage(0);
-                setStatusFilter(['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'][index]);
+                setStatusFilter(item.status);
               }
             }}
           >
             <span className="support-summary-icon">{item.icon}</span>
             <div>
               <small>{item.label}</small>
+              <span className="support-summary-note">{item.note}</span>
               <strong>{loading ? '...' : item.value}</strong>
             </div>
           </article>

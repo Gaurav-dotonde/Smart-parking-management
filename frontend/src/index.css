@@ -731,9 +731,14 @@ body {
 .support-center-hero { display:grid; gap:8px; padding:28px 30px; border:1px solid #dbe7f5; border-radius:20px; background:linear-gradient(120deg,#fff 0%,#f3f8ff 100%); box-shadow:0 12px 30px rgba(28,74,130,.06); }
 .support-center-hero h2 { margin:0; color:#10213b; font-size:1.8rem; }
 .support-center-hero p { margin:0; color:#60738f; }
-.support-summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-.support-summary-card { display:flex; align-items:center; gap:14px; min-height:102px; padding:18px 20px; border:1px solid #dbe7f5; border-radius:18px; background:#fff; box-shadow:0 10px 24px rgba(28,74,130,.055); }
+.support-summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; }
+.support-summary-card { display:flex; align-items:center; gap:14px; min-height:102px; padding:18px 20px; border:1px solid #dbe7f5; border-radius:18px; background:#fff; box-shadow:0 10px 24px rgba(28,74,130,.055); cursor:pointer; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease; }
+.support-summary-card:hover { transform:translateY(-2px); box-shadow:0 14px 28px rgba(28,74,130,.09); }
+.support-summary-card:focus-visible { outline:3px solid #93c5fd; outline-offset:2px; }
+.support-summary-card.is-active { border-color:#2563eb; background:linear-gradient(180deg,#f8fbff 0%,#eef5ff 100%); box-shadow:0 16px 30px rgba(37,99,235,.14); }
+.support-summary-card.is-active strong { color:#0f2f66; }
 .support-summary-card small { display:block; color:#6b7c93; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+.support-summary-note { display:block; color:#6b7c93; font-size:.82rem; font-weight:600; line-height:1.35; margin-top:2px; }
 .support-summary-card strong { color:#10213b; font-size:1.8rem; }
 .support-summary-icon { display:grid; place-items:center; width:48px; height:48px; border-radius:14px; font-size:1.3rem; background:#eef5ff; }
 .support-summary-card.tone-blue .support-summary-icon { color:#1473e6; background:#e6f0ff; }
