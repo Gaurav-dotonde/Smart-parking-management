@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   closeSupportTicket,
   createSupportTicket,
+  createSupportTicketMultipart,
   getMySupportSummary,
   getMySupportTickets,
   getSupportTicket,
@@ -70,6 +71,57 @@ function TicketStatus({ status }) {
   const key = status || 'OPEN';
   return <span className={`support-status ${statusClass[key] || 'open'}`}>{statusLabels[key] || key}</span>;
 }
+function getTicketData(response) {
+  return response?.data?.ticket ?? response?.data?.data ?? response?.data ?? null;
+}
+
+function getTicketsPageData(response) {
+  const data = response?.data?.data ?? response?.data?.tickets ?? response?.data ?? null;
+  if (Array.isArray(data)) {
+    return {
+      content: data,
+      page: 0,
+      size: data.length || 10,
+      totalElements: data.length,
+      totalPages: data.length ? 1 : 0,
+      first: true,
+      last: true,
+    };
+  }
+  if (data && typeof data === 'object') {
+    const page = Number(data.page);
+    const size = Number(data.size);
+    const totalElements = Number(data.totalElements);
+    const totalPages = Number(data.totalPages);
+    return {
+      content: Array.isArray(data.content) ? data.content : [],
+      page: Number.isFinite(page) ? page : 0,
+      size: Number.isFinite(size) ? size : 10,
+      totalElements: Number.isFinite(totalElements) ? totalElements : 0,
+      totalPages: Number.isFinite(totalPages) ? totalPages : 0,
+      first: Boolean(data.first),
+      last: Boolean(data.last),
+    };
+  }
+  return { content: [], page: 0, size: 10, totalElements: 0, totalPages: 0, first: true, last: true };
+}
+
+function getApiErrorMessage(err, fallback) {
+  return err?.response?.data?.message
+    || err?.response?.data?.error
+    || err?.response?.data?.detail
+    || err?.message
+    || fallback;
+}
+
+function isAllowedAttachment(file) {
+  if (!file) return false;
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+  const fileName = String(file.name || '').toLowerCase();
+  const hasAllowedExtension = allowedExtensions.some((extension) => fileName.endsWith(extension));
+  return file.size <= 5 * 1024 * 1024 && allowedMimeTypes.includes(file.type) && hasAllowedExtension;
+}
 
 export default function UserSupport() {
   const { ticketId } = useParams();
@@ -98,6 +150,8 @@ export default function UserSupport() {
   const [replyFiles, setReplyFiles] = useState([]);
   const [replyState, setReplyState] = useState({ saving: false, error: '' });
   const [closing, setClosing] = useState(false);
+  const conversationRef = useRef(null);
+  const createFileInputRef = useRef(null);
 
   const loadPage = async (nextPage = page, nextQuery = query) => {
     setListLoading(true);
@@ -112,10 +166,10 @@ export default function UserSupport() {
         inProgress: summaryResult.data?.inProgress || 0,
         resolved: summaryResult.data?.resolved || 0,
       });
-      setTicketsPage(ticketsResult.data || { content: [] });
+      setTicketsPage(getTicketsPageData(ticketsResult));
       setError('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load support tickets.');
+      setError(getApiErrorMessage(err, 'Failed to load support tickets.'));
     } finally {
       setListLoading(false);
       setLoading(false);
@@ -135,12 +189,12 @@ export default function UserSupport() {
           inProgress: summaryResult.data?.inProgress || 0,
           resolved: summaryResult.data?.resolved || 0,
         });
-        setTicketsPage(ticketsResult.data || { content: [] });
+        setTicketsPage(getTicketsPageData(ticketsResult));
         setError('');
       })
       .catch((err) => {
         if (!mounted) return;
-        setError(err.response?.data?.message || 'Failed to load support tickets.');
+        setError(getApiErrorMessage(err, 'Failed to load support tickets.'));
       })
       .finally(() => {
         if (mounted) {
@@ -157,6 +211,7 @@ export default function UserSupport() {
   useEffect(() => {
     if (!ticketId) {
       setSelectedTicket(null);
+      setReplyState({ saving: false, error: '' });
       return undefined;
     }
     let mounted = true;
@@ -164,13 +219,14 @@ export default function UserSupport() {
     getSupportTicket(ticketId)
       .then((response) => {
         if (!mounted) return;
-        setSelectedTicket(response.data || null);
+        setSelectedTicket(getTicketData(response));
         setReplyText('');
         setReplyFiles([]);
+        setReplyState({ saving: false, error: '' });
       })
       .catch((err) => {
         if (!mounted) return;
-        setError(err.response?.data?.message || 'Could not open ticket.');
+        setError(getApiErrorMessage(err, 'Could not open ticket.'));
       })
       .finally(() => {
         if (mounted) setTicketLoading(false);
@@ -194,28 +250,57 @@ export default function UserSupport() {
 
   const submitTicket = async (event) => {
     event.preventDefault();
+    if (createState.saving) return;
     const trimmedDescription = form.description.trim();
     if (!form.category) return setCreateState({ saving: false, message: '', error: 'Category is required.' });
     if (!form.subject.trim()) return setCreateState({ saving: false, message: '', error: 'Subject is required.' });
     if (!trimmedDescription) return setCreateState({ saving: false, message: '', error: 'Description is required.' });
     if (trimmedDescription.length < 20) return setCreateState({ saving: false, message: '', error: 'Description must be at least 20 characters.' });
+    if (trimmedDescription.length > 4000) return setCreateState({ saving: false, message: '', error: 'Description must be at most 4000 characters.' });
+    if (form.subject.trim().length > 80) return setCreateState({ saving: false, message: '', error: 'Subject must be at most 80 characters.' });
+    if (form.bookingId.trim().length > 50) return setCreateState({ saving: false, message: '', error: 'Booking ID must be at most 50 characters.' });
+    if (form.transactionId.trim().length > 80) return setCreateState({ saving: false, message: '', error: 'Transaction ID must be at most 80 characters.' });
+    const invalidFile = formAttachments.find((file) => !isAllowedAttachment(file));
+    if (invalidFile) {
+      return setCreateState({
+        saving: false,
+        message: '',
+        error: 'Attachment must be JPG, JPEG, PNG, or PDF and 5 MB or smaller.',
+      });
+    }
 
     setCreateState({ saving: true, message: '', error: '' });
     try {
-      await createSupportTicket(buildFormData({
+      const ticketPayload = {
         category: form.category,
         subject: form.subject.trim(),
         message: trimmedDescription,
         bookingId: form.bookingId.trim() || null,
         transactionId: form.transactionId.trim() || null,
-      }, formAttachments));
+      };
+      if (formAttachments.length > 0) {
+        await createSupportTicketMultipart(buildFormData(ticketPayload, formAttachments));
+      } else {
+        await createSupportTicket(ticketPayload);
+      }
       setCreateState({ saving: false, message: 'Your support ticket has been created successfully.', error: '' });
       setForm({ category: 'Payment Issue', subject: '', description: '', bookingId: '', transactionId: '' });
       setFormAttachments([]);
+      if (createFileInputRef.current) {
+        createFileInputRef.current.value = '';
+      }
       setPage(0);
-      setRefreshToken((current) => current + 1);
+      try {
+        await loadPage(0, query);
+      } catch (refreshErr) {
+        setError(getApiErrorMessage(refreshErr, 'Failed to load support tickets.'));
+      }
     } catch (err) {
-      setCreateState({ saving: false, message: '', error: err.response?.data?.message || 'Could not create support ticket.' });
+      setCreateState({
+        saving: false,
+        message: '',
+        error: getApiErrorMessage(err, 'Could not create support ticket.'),
+      });
     }
   };
 
@@ -233,14 +318,26 @@ export default function UserSupport() {
     }
     setReplyState({ saving: true, error: '' });
     try {
-      const response = await replySupportTicket(selectedTicket.id, buildFormData({ message }, replyFiles));
-      setSelectedTicket(response.data || null);
+      setTicketLoading(true);
+      const replyPayload = { message };
+      const replyResponse = await replySupportTicket(
+        selectedTicket.id,
+        replyFiles.length > 0 ? buildFormData(replyPayload, replyFiles) : replyPayload
+      );
+      const repliedTicket = getTicketData(replyResponse) || selectedTicket;
+      await closeSupportTicket(repliedTicket.id);
+      const refreshed = await getSupportTicket(repliedTicket.id);
+      const latestTicket = getTicketData(refreshed) || repliedTicket;
+      setSelectedTicket(latestTicket || null);
       setReplyText('');
       setReplyFiles([]);
       setRefreshToken((current) => current + 1);
+      conversationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
-      setReplyState({ saving: false, error: err.response?.data?.message || 'Could not send reply.' });
+      setReplyState({ saving: false, error: getApiErrorMessage(err, 'Could not send reply.') });
       return;
+    } finally {
+      setTicketLoading(false);
     }
     setReplyState({ saving: false, error: '' });
   };
@@ -251,13 +348,16 @@ export default function UserSupport() {
     if (!confirmed) return;
     setClosing(true);
     try {
-      const response = await closeSupportTicket(selectedTicket.id);
-      setSelectedTicket(response.data || null);
+      await closeSupportTicket(selectedTicket.id);
+      setTicketLoading(true);
+      const refreshed = await getSupportTicket(selectedTicket.id);
+      setSelectedTicket(getTicketData(refreshed));
       setRefreshToken((current) => current + 1);
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not close the ticket.');
+      setError(getApiErrorMessage(err, 'Could not close the ticket.'));
     } finally {
       setClosing(false);
+      setTicketLoading(false);
     }
   };
 
@@ -266,15 +366,19 @@ export default function UserSupport() {
     setClosing(true);
     try {
       const response = await reopenSupportTicket(selectedTicket.id);
-      setSelectedTicket(response.data);
+      setSelectedTicket(getTicketData(response));
       setRefreshToken((current) => current + 1);
-    } catch (err) { setError(err.response?.data?.message || 'Could not reopen the ticket.'); }
+    } catch (err) { setError(getApiErrorMessage(err, 'Could not reopen the ticket.')); }
     finally { setClosing(false); }
   };
 
   const openTicket = (ticket) => {
     navigate(`/user/support/${ticket.id}`);
   };
+
+  const detailTicket = selectedTicket ?? {};
+  const ticketStatus = String(detailTicket.status || '').trim().toUpperCase();
+  const showReplyForm = ticketStatus === 'OPEN';
 
   return (
     <div className="user-page-section support-center-page">
@@ -346,6 +450,7 @@ export default function UserSupport() {
             <label className="support-full-width">
               Attachment (Image/PDF)
               <input
+                ref={createFileInputRef}
                 type="file"
                 accept=".jpg,.jpeg,.png,.pdf"
                 onChange={(event) => setFormAttachments(Array.from(event.target.files || []))}
@@ -455,47 +560,47 @@ export default function UserSupport() {
         )}
       </section>
 
-      {ticketId && selectedTicket && (
+      {ticketId && (
         <div className="support-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) navigate('/user/support'); }}>
           <div className="support-modal support-ticket-detail-modal">
             <div className="support-modal-head">
               <div>
-                <span>{selectedTicket.ticketNumber}</span>
-                <h3>{selectedTicket.subject}</h3>
+                <span>{detailTicket.ticketNumber || `SUP-${String(ticketId).padStart(6, '0')}`}</span>
+                <h3>{detailTicket.subject || 'Ticket Details'}</h3>
               </div>
               <button type="button" onClick={() => navigate('/user/support')} aria-label="Close">×</button>
             </div>
 
-            {ticketLoading ? (
+            {ticketLoading && !detailTicket.id ? (
               <div className="support-empty-state">Loading ticket details...</div>
             ) : (
               <>
                 <div className="support-ticket-meta-grid">
-                  <div><strong>Ticket ID</strong><span>{selectedTicket.ticketNumber}</span></div>
-                  <div><strong>Category</strong><span>{selectedTicket.category?.replaceAll('_', ' ')}</span></div>
-                  <div><strong>Status</strong><TicketStatus status={selectedTicket.status} /></div>
-                  <div><strong>Priority</strong><span>{selectedTicket.priority}</span></div>
-                  <div><strong>Booking ID</strong><span>{selectedTicket.bookingId || '—'}</span></div>
-                  <div><strong>Transaction ID</strong><span>{selectedTicket.transactionId || '—'}</span></div>
-                  <div><strong>Created Date</strong><span>{formatDateTime(selectedTicket.createdAt)}</span></div>
-                  <div><strong>Last Updated</strong><span>{formatDateTime(selectedTicket.updatedAt || selectedTicket.createdAt)}</span></div>
-                  <div><strong>Resolved Date</strong><span>{formatDateTime(selectedTicket.resolvedAt)}</span></div>
-                  <div><strong>Closed Date</strong><span>{formatDateTime(selectedTicket.closedAt)}</span></div>
+                  <div><strong>Ticket ID</strong><span>{detailTicket.ticketNumber || `SUP-${String(ticketId).padStart(6, '0')}`}</span></div>
+                  <div><strong>Category</strong><span>{detailTicket.category?.replaceAll('_', ' ') || 'Not available'}</span></div>
+                  <div><strong>Status</strong><TicketStatus status={detailTicket.status} /></div>
+                  <div><strong>Priority</strong><span>{detailTicket.priority || 'Not available'}</span></div>
+                  <div><strong>Booking ID</strong><span>{detailTicket.bookingId || '—'}</span></div>
+                  <div><strong>Transaction ID</strong><span>{detailTicket.transactionId || '—'}</span></div>
+                  <div><strong>Created Date</strong><span>{formatDateTime(detailTicket.createdAt)}</span></div>
+                  <div><strong>Last Updated</strong><span>{formatDateTime(detailTicket.updatedAt || detailTicket.createdAt)}</span></div>
+                  <div><strong>Resolved Date</strong><span>{formatDateTime(detailTicket.resolvedAt)}</span></div>
+                  <div><strong>Closed Date</strong><span>{formatDateTime(detailTicket.closedAt)}</span></div>
                 </div>
 
-                {selectedTicket.status === 'WAITING_FOR_USER' && <p className="support-success">Support is waiting for your response.</p>}
-                {selectedTicket.status === 'RESOLVED' && <p className="support-success">This ticket has been resolved.</p>}
-                {selectedTicket.resolutionSummary && <div className="support-message-block"><span>Resolution Summary</span><p>{selectedTicket.resolutionSummary}</p></div>}
+                {detailTicket.status === 'WAITING_FOR_USER' && <p className="support-success">Support is waiting for your response.</p>}
+                {detailTicket.status === 'RESOLVED' && <p className="support-success">This ticket has been resolved.</p>}
+                {detailTicket.resolutionSummary && <div className="support-message-block"><span>Resolution Summary</span><p>{detailTicket.resolutionSummary}</p></div>}
 
                 <div className="support-message-block">
                   <span>Description</span>
-                  <p>{selectedTicket.message}</p>
+                  <p>{detailTicket.message || 'Not available'}</p>
                 </div>
 
-                {Array.isArray(selectedTicket.attachments) && selectedTicket.attachments.length > 0 && (
+                {Array.isArray(detailTicket.attachments) && detailTicket.attachments.length > 0 && (
                   <div className="support-attachment-list">
                     <span>Attachments</span>
-                    {selectedTicket.attachments.map((attachment) => (
+                    {detailTicket.attachments.map((attachment) => (
                       <a key={attachment.id} href={attachment.fileUrl} target="_blank" rel="noreferrer">
                         {attachment.originalFileName}
                       </a>
@@ -503,10 +608,10 @@ export default function UserSupport() {
                   </div>
                 )}
 
-                <div className="support-conversation">
+                <div className="support-conversation" ref={conversationRef}>
                   <h4>Conversation</h4>
-                  {Array.isArray(selectedTicket.messages) && selectedTicket.messages.length > 0 ? (
-                    selectedTicket.messages.map((message) => (
+                  {Array.isArray(detailTicket.messages) && detailTicket.messages.length > 0 ? (
+                    detailTicket.messages.map((message) => (
                       <article key={message.id} className={`support-conversation-item role-${message.senderRole?.toLowerCase() || 'user'}`}>
                         <div className="support-conversation-meta">
                           <strong>{message.senderName}</strong>
@@ -528,7 +633,7 @@ export default function UserSupport() {
                   )}
                 </div>
 
-                {selectedTicket.canReply && selectedTicket.status !== 'CLOSED' && (
+                {showReplyForm && (
                   <form className="support-reply-form" onSubmit={sendReply}>
                     <label>
                       Reply
@@ -547,13 +652,6 @@ export default function UserSupport() {
                   </form>
                 )}
 
-                {!selectedTicket.canReply && (
-                  <div className="support-empty-state">
-                    {selectedTicket.status === 'RESOLVED' ? 'Reopen this ticket to continue the conversation.' : 'This ticket is closed and no more replies can be sent.'}
-                    {selectedTicket.canReopen && <button type="button" className="btn btn-secondary" onClick={reopenCurrentTicket} disabled={closing}>{closing ? 'Reopening...' : 'Reopen Ticket'}</button>}
-                    {selectedTicket.canClose && <button type="button" className="btn btn-secondary" onClick={closeCurrentTicket} disabled={closing}>{closing ? 'Closing...' : 'Close Ticket'}</button>}
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -562,3 +660,4 @@ export default function UserSupport() {
     </div>
   );
 }
+
