@@ -1,6 +1,12 @@
 import api from './api';
 
-export const createSupportTicket = (payload) => api.post('/support/tickets', payload);
+export const createSupportTicket = (payload) => api.post('/support/tickets', payload, {
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export const createSupportTicketMultipart = (payload) => api.post('/support/tickets', payload);
 
 export const getMySupportTickets = (params = {}) => api.get('/support/tickets/mine', { params });
 export const getMySupportSummary = () => api.get('/support/tickets/summary');

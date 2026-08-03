@@ -4,6 +4,8 @@ import com.parking.dto.*;
 import com.parking.model.User;
 import com.parking.service.SupportTicketService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -35,9 +37,20 @@ public class SupportTicketController {
     @PostMapping(value = "/support/tickets", consumes = "multipart/form-data")
     public ResponseEntity<SupportTicketDetailResponse> createTicketMultipart(
             @AuthenticationPrincipal User user,
-            @Valid @ModelAttribute SupportTicketRequest request,
+            @RequestParam @NotBlank @Size(max = 40) String category,
+            @RequestParam @NotBlank @Size(max = 80) String subject,
+            @RequestParam @NotBlank @Size(min = 20, max = 4000) String message,
+            @RequestParam(required = false) @Size(max = 50) String bookingId,
+            @RequestParam(required = false) @Size(max = 80) String transactionId,
             @RequestPart(value = "attachments", required = false) List<MultipartFile> attachments
     ) {
+        SupportTicketRequest request = new SupportTicketRequest(
+                subject,
+                category,
+                message,
+                bookingId,
+                transactionId
+        );
         return ResponseEntity.ok(supportTicketService.createTicket(user, request, attachments));
     }
 
