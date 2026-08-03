@@ -108,8 +108,7 @@ Frontend runs on `http://localhost:3000` (Vite proxies `/api` calls to the backe
 On startup, the backend creates one active administrator only when no `ADMIN` account
 exists. The password is BCrypt-encoded before the account is saved through JPA.
 
-- Email: `admin@smartparking.com`
-- Password: `Admin@123`
+
 
 Override these development defaults with `DEFAULT_ADMIN_NAME`,
 `DEFAULT_ADMIN_EMAIL`, and `DEFAULT_ADMIN_PASSWORD`. Change the password after the
