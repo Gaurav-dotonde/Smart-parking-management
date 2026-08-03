@@ -145,9 +145,24 @@ function AdminIcon({ name }) {
   }
 }
 
-function StatCard({ icon, label, value, note, tone = 'is-blue' }) {
+function StatCard({ icon, label, value, note, tone = 'is-blue', onClick, active = false }) {
+  const cardProps = onClick
+    ? {
+        role: 'button',
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick();
+          }
+        },
+        'aria-pressed': active,
+      }
+    : {};
+
   return (
-    <article className={`support-board-stat ${tone}`}>
+    <article className={`support-board-stat ${tone} ${active ? 'is-active' : ''}`} {...cardProps}>
       <div className="support-board-stat-icon">
         <AdminIcon name={icon} />
       </div>
@@ -199,7 +214,6 @@ export default function AdminSupport() {
     totalTickets: 0,
     open: 0,
     inProgress: 0,
-    waitingForUser: 0,
     resolved: 0,
     closed: 0,
     todayTickets: 0,
@@ -246,7 +260,6 @@ export default function AdminSupport() {
         totalTickets: summaryResponse.data?.totalTickets || 0,
         open: summaryResponse.data?.open || 0,
         inProgress: summaryResponse.data?.inProgress || 0,
-        waitingForUser: summaryResponse.data?.waitingForUser || 0,
         resolved: summaryResponse.data?.resolved || 0,
         closed: summaryResponse.data?.closed || 0,
         todayTickets: summaryResponse.data?.todayTickets || 0,
@@ -302,17 +315,12 @@ export default function AdminSupport() {
     };
   }, [ticketId]);
 
-  const urgentCount = useMemo(
-    () => (ticketsPage.content || []).filter((ticket) => ticket.priority === 'URGENT').length,
-    [ticketsPage.content],
-  );
-
   const summaryCards = useMemo(() => ([
-    { label: 'Open', value: summary.open || 0, note: 'Needs first response', icon: 'ticket', tone: 'is-amber' },
-    { label: 'In Progress', value: summary.inProgress || 0, note: 'Being handled by support', icon: 'message', tone: 'is-blue' },
-    { label: 'Waiting For User', value: summary.waitingForUser || 0, note: 'Needs a customer reply', icon: 'clock', tone: 'is-purple' },
-    { label: 'Urgent', value: urgentCount, note: 'High priority on this page', icon: 'alert', tone: 'is-red' },
-  ]), [summary, urgentCount]);
+    { label: 'All', value: summary.totalTickets || 0, note: 'Total Support Tickets', icon: 'ticket', tone: 'is-blue', status: 'ALL' },
+    { label: 'Open', value: summary.open || 0, note: 'Needs first response', icon: 'ticket', tone: 'is-amber', status: 'OPEN' },
+    { label: 'Resolved', value: summary.resolved || 0, note: 'Successfully Resolved', icon: 'resolve', tone: 'is-green', status: 'RESOLVED' },
+    { label: 'In Progress', value: summary.inProgress || 0, note: 'Being handled by support', icon: 'message', tone: 'is-purple', status: 'IN_PROGRESS' },
+  ]), [summary]);
 
   const selectedTicketId = selectedTicket ? String(selectedTicket.id) : String(ticketId || '');
   const showTicketDetail = Boolean(ticketId || selectedTicket || detailLoading || detailError);
@@ -489,6 +497,11 @@ export default function AdminSupport() {
     URL.revokeObjectURL(url);
   };
 
+  const handleSummaryCardClick = (status) => {
+    setPage(0);
+    setStatusFilter(status);
+  };
+
   const selectTicket = (ticket) => {
     navigate(`/admin/support/${ticket.id}`);
   };
@@ -531,7 +544,14 @@ export default function AdminSupport() {
       </section>
 
       <section className="support-board-stats">
-        {summaryCards.map((card) => <StatCard key={card.label} {...card} />)}
+        {summaryCards.map((card) => (
+          <StatCard
+            key={card.label}
+            {...card}
+            active={statusFilter === card.status}
+            onClick={() => handleSummaryCardClick(card.status)}
+          />
+        ))}
       </section>
 
       <section className="support-board-shell card-surface">
