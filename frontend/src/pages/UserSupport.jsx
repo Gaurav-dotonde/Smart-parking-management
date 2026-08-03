@@ -12,16 +12,21 @@ import {
 } from '../services/supportService';
 
 const categories = [
-  'Payment Issue',
-  'Booking Issue',
-  'Refund Issue',
-  'Check-In Issue',
-  'Check-Out Issue',
-  'Parking Slot Issue',
-  'Technical Issue',
-  'Account Issue',
-  'Other',
+  { value: 'PAYMENT_ISSUE', label: 'Payment Issue' },
+  { value: 'BOOKING_ISSUE', label: 'Booking Issue' },
+  { value: 'REFUND_ISSUE', label: 'Refund Issue' },
+  { value: 'CHECK_IN_ISSUE', label: 'Check-In Issue' },
+  { value: 'CHECK_OUT_ISSUE', label: 'Check-Out Issue' },
+  { value: 'PARKING_SLOT_ISSUE', label: 'Parking Slot Issue' },
+  { value: 'TECHNICAL_ISSUE', label: 'Technical Issue' },
+  { value: 'ACCOUNT_ISSUE', label: 'Account Issue' },
+  { value: 'OTHER', label: 'Other' },
 ];
+
+const categoryLabel = (value = '') => {
+  const option = categories.find((item) => item.value === value);
+  return option?.label || value.replaceAll('_', ' ');
+};
 
 const statusLabels = {
   OPEN: 'Open',
@@ -137,7 +142,7 @@ export default function UserSupport() {
   const [refreshToken, setRefreshToken] = useState(0);
   const [createState, setCreateState] = useState({ saving: false, message: '', error: '' });
   const [form, setForm] = useState({
-    category: 'Payment Issue',
+    category: 'PAYMENT_ISSUE',
     subject: '',
     description: '',
     bookingId: '',
@@ -278,13 +283,14 @@ export default function UserSupport() {
         bookingId: form.bookingId.trim() || null,
         transactionId: form.transactionId.trim() || null,
       };
+      console.debug('Submitting support ticket payload:', ticketPayload);
       if (formAttachments.length > 0) {
         await createSupportTicketMultipart(buildFormData(ticketPayload, formAttachments));
       } else {
         await createSupportTicket(ticketPayload);
       }
       setCreateState({ saving: false, message: 'Your support ticket has been created successfully.', error: '' });
-      setForm({ category: 'Payment Issue', subject: '', description: '', bookingId: '', transactionId: '' });
+      setForm({ category: 'PAYMENT_ISSUE', subject: '', description: '', bookingId: '', transactionId: '' });
       setFormAttachments([]);
       if (createFileInputRef.current) {
         createFileInputRef.current.value = '';
@@ -428,7 +434,7 @@ export default function UserSupport() {
             <label>
               Category *
               <select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} required>
-                {categories.map((option) => <option key={option} value={option}>{option}</option>)}
+                {categories.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
             <label>
@@ -463,7 +469,7 @@ export default function UserSupport() {
           {createState.message && <p className="support-success">{createState.message}</p>}
 
           <div className="support-form-actions">
-            <button type="button" className="btn btn-secondary" onClick={() => setForm({ category: 'Payment Issue', subject: '', description: '', bookingId: '', transactionId: '' })}>
+            <button type="button" className="btn btn-secondary" onClick={() => setForm({ category: 'PAYMENT_ISSUE', subject: '', description: '', bookingId: '', transactionId: '' })}>
               Clear
             </button>
             <button type="submit" className="btn" disabled={createState.saving}>
@@ -521,7 +527,7 @@ export default function UserSupport() {
                   {ticketsPage.content.map((ticket) => (
                     <tr key={ticket.id}>
                       <td><strong>{ticket.ticketNumber || `SUP-${String(ticket.id).padStart(6, '0')}`}</strong></td>
-                      <td>{ticket.category?.replaceAll('_', ' ')}</td>
+                      <td>{categoryLabel(ticket.category)}</td>
                       <td>{ticket.subject}</td>
                       <td>{ticket.bookingId || '—'}</td>
                       <td><TicketStatus status={ticket.status} /></td>
@@ -577,7 +583,7 @@ export default function UserSupport() {
               <>
                 <div className="support-ticket-meta-grid">
                   <div><strong>Ticket ID</strong><span>{detailTicket.ticketNumber || `SUP-${String(ticketId).padStart(6, '0')}`}</span></div>
-                  <div><strong>Category</strong><span>{detailTicket.category?.replaceAll('_', ' ') || 'Not available'}</span></div>
+                  <div><strong>Category</strong><span>{categoryLabel(detailTicket.category) || 'Not available'}</span></div>
                   <div><strong>Status</strong><TicketStatus status={detailTicket.status} /></div>
                   <div><strong>Priority</strong><span>{detailTicket.priority || 'Not available'}</span></div>
                   <div><strong>Booking ID</strong><span>{detailTicket.bookingId || '—'}</span></div>

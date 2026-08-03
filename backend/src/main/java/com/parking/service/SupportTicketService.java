@@ -363,14 +363,15 @@ public class SupportTicketService {
         long messageCount = getMessagesForTicket(ticket.getId()).size();
         long attachmentCount = getAttachmentsForTicket(ticket.getId()).size();
         User assignedTo = ticket.getAssignedTo();
+        User ticketUser = ticket.getUser();
         String status = ticket.getStatus() == null ? SupportStatus.OPEN.name() : ticket.getStatus().name();
         String priority = ticket.getPriority() == null ? SupportPriority.MEDIUM.name() : ticket.getPriority().name();
         return new SupportTicketResponse(
                 ticket.getId(),
                 ticket.getTicketNumber(),
-                ticket.getUser().getId(),
-                ticket.getUser().getName(),
-                ticket.getUser().getEmail(),
+                ticketUser == null ? null : ticketUser.getId(),
+                ticketUser == null ? "Unknown user" : ticketUser.getName(),
+                ticketUser == null ? null : ticketUser.getEmail(),
                 ticket.getSubject(),
                 ticket.getCategory(),
                 ticket.getMessage(),
@@ -399,6 +400,7 @@ public class SupportTicketService {
                 .map(this::toHistoryResponse)
                 .toList();
         User assignedTo = ticket.getAssignedTo();
+        User ticketUser = ticket.getUser();
         List<SupportInternalNoteResponse> noteResponses = new ArrayList<>();
         if (adminView && trimToNull(ticket.getLegacyInternalNotes()) != null) {
             noteResponses.add(new SupportInternalNoteResponse(-ticket.getId(), null, "Legacy note", ticket.getLegacyInternalNotes(), ticket.getCreatedAt()));
@@ -411,9 +413,9 @@ public class SupportTicketService {
         return new SupportTicketDetailResponse(
                 ticket.getId(),
                 ticket.getTicketNumber(),
-                ticket.getUser().getId(),
-                ticket.getUser().getName(),
-                ticket.getUser().getEmail(),
+                ticketUser == null ? null : ticketUser.getId(),
+                ticketUser == null ? "Unknown user" : ticketUser.getName(),
+                ticketUser == null ? null : ticketUser.getEmail(),
                 ticket.getSubject(),
                 ticket.getCategory(),
                 ticket.getMessage(),
