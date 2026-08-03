@@ -70,14 +70,21 @@ public class SupportTicketService {
 
     public SupportTicketPageResponse getMyTickets(User currentUser, String query, String status, int page, int size) {
         User managedUser = requireManagedUser(currentUser);
-        List<SupportTicket> tickets = ticketRepository.findAll(userSpecification(managedUser.getId(), query, status));
+        List<SupportTicket> tickets = ticketRepository.findAll().stream()
+                .filter(ticket -> belongsToUser(ticket, managedUser.getId()))
+                .filter(ticket -> matchesTicketStatus(ticket, status))
+                .filter(ticket -> matchesTicketQuery(ticket, query))
+                .toList();
         tickets = sortTickets(tickets);
         return toPage(tickets, Math.max(page, 0), clampPageSize(size), false);
     }
 
     public List<SupportTicketResponse> getMyTickets(User currentUser) {
         User managedUser = requireManagedUser(currentUser);
-        return ticketRepository.findByUserIdOrderByCreatedAtDesc(managedUser.getId()).stream()
+        List<SupportTicket> tickets = ticketRepository.findAll().stream()
+                .filter(ticket -> belongsToUser(ticket, managedUser.getId()))
+                .toList();
+        return sortTickets(tickets, "createdAt,desc").stream()
                 .map(ticket -> toListResponse(ticket, false))
                 .toList();
     }
@@ -98,16 +105,14 @@ public class SupportTicketService {
 
     public SupportTicketDetailResponse getMyTicketDetail(User currentUser, Long ticketId) {
         User managedUser = requireManagedUser(currentUser);
-        SupportTicket ticket = ticketRepository.findByIdAndUserId(ticketId, managedUser.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
+        SupportTicket ticket = requireUserTicket(ticketId, managedUser.getId());
         return toDetail(ticket, managedUser, false);
     }
 
     public SupportTicketDetailResponse replyAsUser(User currentUser, Long ticketId, SupportReplyRequest request, List<MultipartFile> files) {
         User managedUser = requireManagedUser(currentUser);
-        SupportTicket ticket = ticketRepository.findByIdAndUserId(ticketId, managedUser.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
-        if (!Set.of(SupportStatus.OPEN, SupportStatus.IN_PROGRESS, SupportStatus.WAITING_FOR_USER).contains(ticket.getStatus())) {
+        SupportTicket ticket = requireUserTicket(ticketId, managedUser.getId());
+        if (!isReplyableStatus(ticket.getStatus())) {
             throw new IllegalStateException("This ticket must be reopened before another reply can be sent.");
         }
         SupportStatus previous = ticket.getStatus();
@@ -122,14 +127,21 @@ public class SupportTicketService {
 
     public SupportTicketDetailResponse closeTicket(User currentUser, Long ticketId) {
         User managedUser = requireManagedUser(currentUser);
-        SupportTicket ticket = ticketRepository.findByIdAndUserId(ticketId, managedUser.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
-        if (ticket.getStatus() != SupportStatus.RESOLVED) {
-            throw new IllegalStateException("Only resolved tickets can be closed.");
+        SupportTicket ticket = requireUserTicket(ticketId, managedUser.getId());
+        if (ticket.getStatus() == SupportStatus.CLOSED || ticket.getStatus() == SupportStatus.CANCELLED) {
+            throw new IllegalStateException("This ticket cannot be closed in its current status.");
         }
         SupportStatus previous = ticket.getStatus();
-        ticket.setStatus(SupportStatus.CLOSED);
+        if (ticket.getStatus() != SupportStatus.RESOLVED) {
+            transitionStatus(ticket, SupportStatus.RESOLVED);
+            ticket.setResolvedAt(LocalDateTime.now());
+            ticket.setResolvedBy(managedUser);
+            recordHistory(ticket, previous, SupportStatus.RESOLVED, managedUser, "User resolved the ticket.");
+            previous = SupportStatus.RESOLVED;
+        }
+        transitionStatus(ticket, SupportStatus.CLOSED);
         ticket.setClosedAt(LocalDateTime.now());
+        ticket.setClosedBy(managedUser);
         ticketRepository.save(ticket);
         recordHistory(ticket, previous, SupportStatus.CLOSED, managedUser, "User closed the ticket.");
         return toDetail(ticket, managedUser, false);
@@ -253,8 +265,7 @@ public class SupportTicketService {
 
     public SupportTicketDetailResponse reopenAsUser(Long ticketId, User currentUser) {
         User user = requireManagedUser(currentUser);
-        SupportTicket ticket = ticketRepository.findByIdAndUserId(ticketId, user.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
+        SupportTicket ticket = requireUserTicket(ticketId, user.getId());
         if (ticket.getStatus() != SupportStatus.RESOLVED || ticket.getResolvedAt() == null
                 || ticket.getResolvedAt().plusDays(7).isBefore(LocalDateTime.now())) {
             throw new IllegalStateException("Resolved tickets can only be reopened within 7 days.");
@@ -264,8 +275,7 @@ public class SupportTicketService {
 
     public SupportTicketDetailResponse cancelAsUser(Long ticketId, User currentUser) {
         User user = requireManagedUser(currentUser);
-        SupportTicket ticket = ticketRepository.findByIdAndUserId(ticketId, user.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
+        SupportTicket ticket = requireUserTicket(ticketId, user.getId());
         if (!Set.of(SupportStatus.OPEN, SupportStatus.IN_PROGRESS, SupportStatus.WAITING_FOR_USER).contains(ticket.getStatus()))
             throw new IllegalStateException("This ticket cannot be cancelled in its current status.");
         SupportStatus previous = ticket.getStatus();
@@ -279,7 +289,7 @@ public class SupportTicketService {
         User managedAdmin = requireAdminUser(adminUser);
         SupportTicket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
-        if (ticket.getStatus() == SupportStatus.CLOSED || ticket.getStatus() == SupportStatus.CANCELLED) {
+        if (!isReplyableStatus(ticket.getStatus())) {
             throw new IllegalStateException("Reopen this ticket before replying.");
         }
         SupportStatus previous = ticket.getStatus();
@@ -343,10 +353,18 @@ public class SupportTicketService {
         return ascending ? result : -result;
     }
 
+    private boolean isReplyableStatus(SupportStatus status) {
+        return status == SupportStatus.OPEN
+                || status == SupportStatus.IN_PROGRESS
+                || status == SupportStatus.WAITING_FOR_USER;
+    }
+
     private SupportTicketResponse toListResponse(SupportTicket ticket, boolean adminView) {
-        long messageCount = messageRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).size();
-        long attachmentCount = attachmentRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).size();
+        long messageCount = getMessagesForTicket(ticket.getId()).size();
+        long attachmentCount = getAttachmentsForTicket(ticket.getId()).size();
         User assignedTo = ticket.getAssignedTo();
+        String status = ticket.getStatus() == null ? SupportStatus.OPEN.name() : ticket.getStatus().name();
+        String priority = ticket.getPriority() == null ? SupportPriority.MEDIUM.name() : ticket.getPriority().name();
         return new SupportTicketResponse(
                 ticket.getId(),
                 ticket.getTicketNumber(),
@@ -358,8 +376,8 @@ public class SupportTicketService {
                 ticket.getMessage(),
                 ticket.getBookingId(),
                 ticket.getTransactionId(),
-                ticket.getStatus().name(),
-                ticket.getPriority().name(),
+                status,
+                priority,
                 assignedTo == null ? null : assignedTo.getName(),
                 assignedTo == null ? null : assignedTo.getEmail(),
                 messageCount,
@@ -371,13 +389,13 @@ public class SupportTicketService {
     }
 
     private SupportTicketDetailResponse toDetail(SupportTicket ticket, User viewer, boolean adminView) {
-        List<SupportMessageResponse> messages = messageRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
+        List<SupportMessageResponse> messages = getMessagesForTicket(ticket.getId()).stream()
                 .map(this::toMessageResponse)
                 .toList();
-        List<SupportAttachmentResponse> attachments = attachmentRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
+        List<SupportAttachmentResponse> attachments = getAttachmentsForTicket(ticket.getId()).stream()
                 .map(this::toAttachmentResponse)
                 .toList();
-        List<SupportStatusHistoryResponse> history = historyRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
+        List<SupportStatusHistoryResponse> history = getHistoryForTicket(ticket.getId()).stream()
                 .map(this::toHistoryResponse)
                 .toList();
         User assignedTo = ticket.getAssignedTo();
@@ -385,9 +403,11 @@ public class SupportTicketService {
         if (adminView && trimToNull(ticket.getLegacyInternalNotes()) != null) {
             noteResponses.add(new SupportInternalNoteResponse(-ticket.getId(), null, "Legacy note", ticket.getLegacyInternalNotes(), ticket.getCreatedAt()));
         }
-        if (adminView) internalNoteRepository.findByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
+        if (adminView) getInternalNotesForTicket(ticket.getId()).stream()
                 .map(note -> new SupportInternalNoteResponse(note.getId(), note.getAdmin().getId(), note.getAdmin().getName(), note.getNote(), note.getCreatedAt()))
                 .forEach(noteResponses::add);
+        String status = ticket.getStatus() == null ? SupportStatus.OPEN.name() : ticket.getStatus().name();
+        String priority = ticket.getPriority() == null ? SupportPriority.MEDIUM.name() : ticket.getPriority().name();
         return new SupportTicketDetailResponse(
                 ticket.getId(),
                 ticket.getTicketNumber(),
@@ -399,8 +419,8 @@ public class SupportTicketService {
                 ticket.getMessage(),
                 ticket.getBookingId(),
                 ticket.getTransactionId(),
-                ticket.getStatus().name(),
-                ticket.getPriority().name(),
+                status,
+                priority,
                 assignedTo == null ? null : assignedTo.getName(),
                 assignedTo == null ? null : assignedTo.getEmail(),
                 assignedTo == null ? null : assignedTo.getId(),
@@ -417,7 +437,7 @@ public class SupportTicketService {
                 attachments,
                 history,
                 noteResponses,
-                Set.of(SupportStatus.OPEN, SupportStatus.IN_PROGRESS, SupportStatus.WAITING_FOR_USER).contains(ticket.getStatus()),
+                ticket.getStatus() != null && Set.of(SupportStatus.OPEN, SupportStatus.IN_PROGRESS, SupportStatus.WAITING_FOR_USER).contains(ticket.getStatus()),
                 ticket.getStatus() == SupportStatus.RESOLVED,
                 ticket.getStatus() == SupportStatus.RESOLVED && ticket.getResolvedAt() != null
                         && !ticket.getResolvedAt().plusDays(7).isBefore(LocalDateTime.now())
@@ -550,6 +570,98 @@ public class SupportTicketService {
                 .orElseThrow(() -> new IllegalArgumentException("Support ticket not found."));
     }
 
+    private SupportTicket requireUserTicket(Long ticketId, Long userId) {
+        SupportTicket ticket = requireTicket(ticketId);
+        if (!belongsToUser(ticket, userId)) {
+            throw new IllegalArgumentException("Support ticket not found.");
+        }
+        return ticket;
+    }
+
+    private boolean belongsToUser(SupportTicket ticket, Long userId) {
+        return ticket != null
+                && ticket.getUser() != null
+                && ticket.getUser().getId() != null
+                && Objects.equals(ticket.getUser().getId(), userId);
+    }
+
+    private boolean matchesTicketStatus(SupportTicket ticket, String status) {
+        if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
+            return true;
+        }
+        return ticket.getStatus() != null && ticket.getStatus().name().equalsIgnoreCase(status.trim());
+    }
+
+    private boolean matchesTicketQuery(SupportTicket ticket, String query) {
+        String text = trimToNull(query);
+        if (text == null) {
+            return true;
+        }
+        String like = text.toLowerCase(Locale.ROOT);
+        String ticketNumber = ticket.getTicketNumber() == null ? "" : ticket.getTicketNumber().toLowerCase(Locale.ROOT);
+        String subject = ticket.getSubject() == null ? "" : ticket.getSubject().toLowerCase(Locale.ROOT);
+        String category = ticket.getCategory() == null ? "" : ticket.getCategory().toLowerCase(Locale.ROOT);
+        String bookingId = ticket.getBookingId() == null ? "" : ticket.getBookingId().toLowerCase(Locale.ROOT);
+        String transactionId = ticket.getTransactionId() == null ? "" : ticket.getTransactionId().toLowerCase(Locale.ROOT);
+        String userName = ticket.getUser() != null && ticket.getUser().getName() != null
+                ? ticket.getUser().getName().toLowerCase(Locale.ROOT)
+                : "";
+        String userEmail = ticket.getUser() != null && ticket.getUser().getEmail() != null
+                ? ticket.getUser().getEmail().toLowerCase(Locale.ROOT)
+                : "";
+        return ticketNumber.contains(like)
+                || subject.contains(like)
+                || category.contains(like)
+                || bookingId.contains(like)
+                || transactionId.contains(like)
+                || userName.contains(like)
+                || userEmail.contains(like);
+    }
+
+    private List<SupportMessage> getMessagesForTicket(Long ticketId) {
+        return messageRepository.findAll().stream()
+                .filter(message -> message != null
+                        && message.getTicket() != null
+                        && Objects.equals(message.getTicket().getId(), ticketId))
+                .sorted(Comparator.comparing(
+                        (SupportMessage message) -> message.getCreatedAt(),
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    private List<SupportAttachment> getAttachmentsForTicket(Long ticketId) {
+        return attachmentRepository.findAll().stream()
+                .filter(attachment -> attachment != null
+                        && attachment.getTicket() != null
+                        && Objects.equals(attachment.getTicket().getId(), ticketId))
+                .sorted(Comparator.comparing(
+                        (SupportAttachment attachment) -> attachment.getCreatedAt(),
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    private List<SupportStatusHistory> getHistoryForTicket(Long ticketId) {
+        return historyRepository.findAll().stream()
+                .filter(history -> history != null
+                        && history.getTicket() != null
+                        && Objects.equals(history.getTicket().getId(), ticketId))
+                .sorted(Comparator.comparing(
+                        (SupportStatusHistory history) -> history.getCreatedAt(),
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    private List<SupportInternalNote> getInternalNotesForTicket(Long ticketId) {
+        return internalNoteRepository.findAll().stream()
+                .filter(note -> note != null
+                        && note.getTicket() != null
+                        && Objects.equals(note.getTicket().getId(), ticketId))
+                .sorted(Comparator.comparing(
+                        (SupportInternalNote note) -> note.getCreatedAt(),
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
     private void assign(SupportTicket ticket, Long assigneeId, User actor) {
         User previous = ticket.getAssignedTo();
         User assignee = null;
@@ -583,19 +695,6 @@ public class SupportTicketService {
         ticketRepository.save(ticket);
         recordHistory(ticket, previous, SupportStatus.IN_PROGRESS, actor, "Ticket reopened.");
         return toDetail(ticket, actor, adminView);
-    }
-
-    private Specification<SupportTicket> userSpecification(Long userId, String query, String status) {
-        return (root, cq, cb) -> {
-            cq.distinct(true);
-            var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
-            predicates.add(cb.equal(root.get("user").get("id"), userId));
-            if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
-                predicates.add(cb.equal(cb.upper(root.get("status").as(String.class)), status.toUpperCase(Locale.ROOT)));
-            }
-            addSearchPredicates(root, cb, predicates, query);
-            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
-        };
     }
 
     private Specification<SupportTicket> adminSpecification(String query, String status, String category, String priority,
